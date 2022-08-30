@@ -1,0 +1,49 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.7.
+--
+-- see: https://github.com/sol/hpack
+
+name:           drumming-rendering-again
+version:        0.0.0
+build-type:     Simple
+
+library
+  exposed-modules:
+      Note
+  other-modules:
+      Paths_drumming_rendering_again
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Werror
+  build-depends:
+      base ==4.*
+    , mtl
+  default-language: Haskell2010
+
+executable haskell-hello
+  main-is: Main.hs
+  other-modules:
+      Paths_drumming_rendering_again
+  ghc-options: -Wall -Werror
+  build-depends:
+      base ==4.*
+    , mtl
+  default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_drumming_rendering_again
+  hs-source-dirs:
+      spec
+  ghc-options: -Wall -Werror
+  build-depends:
+      HUnit
+    , base ==4.*
+    , drumming-rendering-again
+    , mtl
+    , tasty
+    , tasty-hunit
+  default-language: Haskell2010
