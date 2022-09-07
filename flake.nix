@@ -14,6 +14,12 @@
     {
       overlay = (final: prev: {
         haskell-hello = final.haskellPackages.callCabal2nix "haskell-hello" ./. {};
+
+        haskellPackages = prev.haskellPackages.override (old: {
+          overrides = final.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {
+            list-zipper = with final.haskell.lib; markUnbroken (doJailbreak hsuper.list-zipper);
+          });
+        });
       });
       packages = forAllSystems (system: {
          haskell-hello = nixpkgsFor.${system}.haskell-hello;
@@ -28,6 +34,7 @@
             haskell-language-server
             ghcid
             cabal-install
+            hpack
           ];
         # Change the prompt to show that you are in a devShell
         shellHook = "export PS1='\\e[1;34mdev > \\e[0m'";

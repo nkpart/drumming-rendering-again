@@ -1,6 +1,8 @@
 dependencies:
   - base == 4.*
   - mtl
+  - list-zipper
+  - lens
 
 executables:
   haskell-hello:
@@ -12,13 +14,11 @@ library:
 ghc-options:
   - -Wall
   - -Werror
-
 tests:
   spec:
-    main: Spec.hs
+    main: Driver.hs
     source-dirs: spec
     dependencies:
-      - tasty
-      - tasty-hunit
-      - HUnit
+      - hspec
+      - hspec-discover
       - drumming-rendering-again

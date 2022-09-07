@@ -10,7 +10,10 @@ build-type:     Simple
 
 library
   exposed-modules:
+      Measure
       Note
+      Score
+      ZipNotes
   other-modules:
       Paths_drumming_rendering_again
   hs-source-dirs:
@@ -18,6 +21,8 @@ library
   ghc-options: -Wall -Werror
   build-depends:
       base ==4.*
+    , lens
+    , list-zipper
     , mtl
   default-language: Haskell2010
 
@@ -28,22 +33,29 @@ executable haskell-hello
   ghc-options: -Wall -Werror
   build-depends:
       base ==4.*
+    , lens
+    , list-zipper
     , mtl
   default-language: Haskell2010
 
 test-suite spec
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Driver.hs
   other-modules:
+      NoteSpec
+      Score.RenderSpec
+      ScoreSpec
+      ZipNotesSpec
       Paths_drumming_rendering_again
   hs-source-dirs:
       spec
   ghc-options: -Wall -Werror
   build-depends:
-      HUnit
-    , base ==4.*
+      base ==4.*
     , drumming-rendering-again
+    , hspec
+    , hspec-discover
+    , lens
+    , list-zipper
     , mtl
-    , tasty
-    , tasty-hunit
   default-language: Haskell2010
