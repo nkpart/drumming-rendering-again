@@ -2,6 +2,8 @@
 
 module Main where
 
+import Gui
+
 main :: IO ()
-main = print "ok"
+main = gui
 

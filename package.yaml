@@ -3,9 +3,19 @@ dependencies:
   - mtl
   - list-zipper
   - lens
+  - heterocephalus
+  - blaze-markup
+  - repline
+  - process
+  - rio
+  - rio-orphans
+  - haskell-gi-base
+  - gi-gtk
 
 executables:
-  haskell-hello:
+  score:
+    dependencies:
+      - drumming-rendering-again
     main: Main.hs
 
 library:
@@ -19,6 +29,9 @@ tests:
     main: Driver.hs
     source-dirs: spec
     dependencies:
-      - hspec
-      - hspec-discover
+      - hedgehog
+      - tasty
+      - tasty-discover
+      - tasty-golden
+      - tasty-hedgehog
       - drumming-rendering-again

@@ -1,11 +1,9 @@
 module NoteSpec where
 
-import Test.Hspec
 import Note
+import Hedgehog
 
-spec :: Spec
-spec =
-  describe "Note" $
-   it "builds" $
-      Note True `shouldBe` note False
 
+hprop_builds :: Property
+hprop_builds = withTests 1 . property $
+      note False === Note "p"

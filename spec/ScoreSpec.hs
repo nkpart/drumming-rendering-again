@@ -1,16 +1,16 @@
 module ScoreSpec where
 
-import Test.Hspec
-
 import Score
 import Measure
 import Note
-import Data.ListZipper (list)
+import RIO
+import Data.ListZipper hiding (focus)
+import Hedgehog
 
-spec :: Spec
-spec = 
-  describe "Score" $ do
-    it "appends" $
-      let start = fromMeasures [Measure [Note False]]
-          modified = list $ appendMeasure start
-      in modified `shouldBe` [emptyMeasure]
+hprop_Score_appends :: Property
+hprop_Score_appends = withTests 1 . property $
+      let start = score Metadata [Measure [Note "X"]]
+          modified = insertMeasure start
+      in do
+        allMeasures modified === [Measure [Note "X"], emptyMeasure]
+        (modified ^. measures . focus) === ListZipper [] Nothing []

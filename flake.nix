@@ -26,15 +26,32 @@
       });
       defaultPackage = forAllSystems (system: self.packages.${system}.haskell-hello);
       checks = self.packages;
-      devShell = forAllSystems (system: let haskellPackages = nixpkgsFor.${system}.haskellPackages;
+      devShell = forAllSystems (system: 
+        let haskellPackages = nixpkgsFor.${system}.haskellPackages;
+            allPkgs = nixpkgsFor.${system};
+            lily = (allPkgs.writeScriptBin "lilypond" ''
+             #!${allPkgs.stdenv.shell}
+             # For lilypond, prevents "Fontconfig error: Cannot load default config file" and segfault
+             export FONTCONFIG_FILE=${
+             allPkgs.makeFontsConf {
+               fontDirectories = [ "/Library/Fonts" "~/Library/Fonts" "/System/Library/Fonts" ];
+               }
+             }
+             exec ${allPkgs.lilypond}/bin/lilypond $@
+             '');
         in haskellPackages.shellFor {
           packages = p: [self.packages.${system}.haskell-hello];
           withHoogle = true;
+
           buildInputs = with haskellPackages; [
             haskell-language-server
             ghcid
             cabal-install
             hpack
+            lily
+            allPkgs.bashInteractive
+
+            ghci-dap haskell-debug-adapter
           ];
         # Change the prompt to show that you are in a devShell
         shellHook = "export PS1='\\e[1;34mdev > \\e[0m'";

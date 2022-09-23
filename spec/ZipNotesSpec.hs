@@ -1,25 +1,27 @@
+{-# language OverloadedStrings #-}
 module ZipNotesSpec where
 
-import Test.Hspec
 import Data.ListZipper
-
-import ZipNotes
+import Measure
 import Note
+import Hedgehog
 
-spec :: Spec
-spec = 
-  describe "ZipNotes" . it "" $ do
-      toList (fromList (note False) [] `append` Note True `append` Note False)
-        `shouldBe`
-        [Note False, Note True, Note False]
+shouldBe :: (Eq a, Show a) => a -> a -> PropertyT IO ()
+shouldBe = (===)
 
-      toList (fromList (Note False) [Note True, Note False])
+hprop_spec :: Property
+hprop_spec = withTests 1 . property $ do
+      (append (Note "p") $ zipper0L (Just $ Note "P") [])
         `shouldBe`
-        [Note False, Note True, Note False] 
+        ListZipper [Just "P"] (Just "p") []
 
-      toList (copy $ fromList (Note True) [Note False] )
+      list (zipper0L (Note "P") [Note "p", Note "P"])
         `shouldBe`
-        [Note True, Note True, Note False]
-      toList (copy $ moveEnd $ fromList (Note True) [Note False] )
+        [Note "P", Note "p", Note "P"] 
+
+      list (copy $ zipper0L (Just $ Note "p") [Just $ Note "P"] )
         `shouldBe`
-        [Note True, Note False, Note False]
+        (fmap Just [Note "p", Note "p", Note "P"])
+      list (copy $ moveEnd $ zipper0L (Just $ Note "p") [Just $ Note "P"] )
+        `shouldBe`
+        (fmap Just [Note "p", Note "P", Note "P"])
