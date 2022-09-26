@@ -1,33 +1,27 @@
 module Measure where
 
 import Data.ListZipper
-import Note
+import Elem
 import Prelude hiding (reverse)
 import RIO
 
-newtype Measure = Measure [Note]
-  deriving (Eq, Show)
-
 type ZipNotes = ListZipper (Maybe Note)
 
-emptyMeasure :: Measure
-emptyMeasure = Measure []
-
-startEdit :: Measure -> ZipNotes
-startEdit (Measure (n:ns)) = zipper0L (Just n) (fmap Just ns)
-startEdit (Measure []) = zipper0L Nothing []
-
-finishEdit :: ZipNotes -> Measure
-finishEdit = Measure . catMaybes . nelist
+editList :: [Note] -> ZipNotes
+editList (n:ns) = zipper0L (Just n) (fmap Just ns)
+editList [] = zipper0L Nothing []
 
 nelist :: ListZipper a -> [a]
 nelist (ListZipper [] x r) = x : r
 nelist (ListZipper (x:xs) f r) = RIO.reverse (x : xs) <> (f : r)
 
-append :: Note -> ZipNotes -> ZipNotes
-append = insertMoveLeft . Just
-
-copy :: ZipNotes -> ZipNotes
+copy :: ListZipper a -> ListZipper a
 copy x =
     insertMoveRight (x ^. focus) x
 
+getPair :: ListZipper (Maybe a) -> Maybe (a,a)
+getPair (ListZipper _ _ []) = 
+  Nothing
+getPair (ListZipper _ (Just x) ((Just r):_)) =
+  Just (x, r)
+getPair _ = error "getPair whoopsie" 

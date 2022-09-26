@@ -2,7 +2,6 @@
 module Repl where
 
 import Control.Monad.IO.Class
-import Data.List (isPrefixOf)
 import System.Console.Repline
 import System.Process (callCommand, readProcessWithExitCode)
 import RIO
@@ -11,7 +10,6 @@ import Control.Lens.TH
 import qualified Prelude
 import Score
 import Score.Render
-import Note
 
 type Repl a = HaskelineT (RIO App) a
 
@@ -36,7 +34,7 @@ repl = do
           mempty
           (Just ':')
           (Just "paste")
-          (Word completer)
+          (Word mempty)
           ini
           final
  pure ()
@@ -46,18 +44,12 @@ cmd :: String -> Repl ()
 cmd input = lift $ case words input of 
  ["show"] -> sendToLilypond
  ["print"] -> debugPrint
- ["note", x] -> do
+ ["note", _] -> do -- TODO: use the argument to note
    r <- view scoreRef
-   modifyIORef r $ insertNote (Note x)
+   modifyIORef r insertNote -- TODO: this should use edit state
    sendToLilypond
    pure ()
  _ -> logInfo "i dunno"
-
--- Tab Completion: return a completion for partial words entered
-completer :: Monad m => WordCompleter m
-completer n = do
-  let names = ["kirk", "spock", "mccoy"]
-  return $ filter (isPrefixOf n) names
 
 ini :: Repl ()
 ini = logInfo "Welcome!"

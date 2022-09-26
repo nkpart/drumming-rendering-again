@@ -10,9 +10,10 @@ build-type:     Simple
 
 library
   exposed-modules:
+      EditState
+      Elem
       Gui
       Measure
-      Note
       Repl
       Score
       Score.Render
@@ -24,6 +25,7 @@ library
   build-depends:
       base ==4.*
     , blaze-markup
+    , gi-gdk
     , gi-gtk
     , haskell-gi-base
     , heterocephalus
@@ -45,6 +47,7 @@ executable score
       base ==4.*
     , blaze-markup
     , drumming-rendering-again
+    , gi-gdk
     , gi-gtk
     , haskell-gi-base
     , heterocephalus
@@ -61,6 +64,7 @@ test-suite spec
   type: exitcode-stdio-1.0
   main-is: Driver.hs
   other-modules:
+      EditNoteSpec
       NoteSpec
       Score.RenderSpec
       ScoreSpec
@@ -73,6 +77,7 @@ test-suite spec
       base ==4.*
     , blaze-markup
     , drumming-rendering-again
+    , gi-gdk
     , gi-gtk
     , haskell-gi-base
     , hedgehog

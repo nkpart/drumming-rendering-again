@@ -1,9 +1,14 @@
 module NoteSpec where
 
-import Note
+import Elem
 import Hedgehog
+import Hedgehog.Gen as Gen
 
 
-hprop_builds :: Property
-hprop_builds = withTests 1 . property $
-      note False === Note "p"
+genHand :: Gen Hand
+genHand = Gen.enumBounded
+
+hprop_swapHand :: Property
+hprop_swapHand = property $ do 
+      h <- forAll genHand
+      swapHand h /== h

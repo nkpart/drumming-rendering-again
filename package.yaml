@@ -11,6 +11,8 @@ dependencies:
   - rio-orphans
   - haskell-gi-base
   - gi-gtk
+  - gi-gdk
+  - zippers
 
 executables:
   score:

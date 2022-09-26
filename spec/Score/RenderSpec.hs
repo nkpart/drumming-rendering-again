@@ -1,40 +1,43 @@
-{-# language TemplateHaskellQuotes #-}
+{-# language TemplateHaskellQuotes, OverloadedStrings #-}
 module Score.RenderSpec where
 
 import Score
 import Score.Render
-import Note
-import Measure
 import Data.ListZipper
-import Data.Bifoldable
-import Hedgehog
+-- import Hedgehog
 import RIO.FilePath
-import Test.Tasty.Golden
-import Test.Tasty
-import RIO (fromString)
+import RIO
+import Hedgehog
+import EditState (initState)
+import Elem
 
+hprop_renderScore_empty :: Property
+hprop_renderScore_empty = withTests 1 . property $ do
+    v <- readGolden (show 'renderScore <> "blank")
+    v === renderScore (score Metadata [])
 
-hprop_bifoldMap :: Property
-hprop_bifoldMap = withTests 1 . property $
-    bifoldMap pure pure (EdittingZipper [2::Int,1] 3 [4,5]) === [1,2,3,4,5]
-
-test_1 :: TestTree
-test_1 =
-    defaultGolden (show 'renderScore <> "blank") (renderScore $ score Metadata [])
-
-test_2 :: TestTree
-test_2 =
+hprop_renderScore_with_notes :: Property
+hprop_renderScore_with_notes = withTests 1 . property $
     let
-      l = [Measure [Note "r4"]]
-      x = ListZipper [] (Just $ Note "P4") []
-      r = [Measure [Note "r4"]]
-      thisScore =
-         Score Metadata
-               (EdittingZipper l x r)
+      theseNotes = Just <$> ListZipper [left&duration.~d2, right&duration.~d1] (right&duration.~d4) [left&duration.~d8, right&duration.~d16]
+      thisScore = Score initState Metadata theseNotes
+    in do
+        v <- readGolden (show 'renderScore <> "-somewhat-complicated") 
+        v === renderScore thisScore
 
-    in
-      defaultGolden (show 'renderScore <> "-somewhat-complicated") (renderScore thisScore)
+hprop_renderNotes_orders_left_to_right :: Property
+hprop_renderNotes_orders_left_to_right =
+  withTests 1 . property $ pure ()
+    -- renderNotes ForPresentation (Just <$> ListZipper ["P2", "P1"] "P3" ["P4", "P5"]) === "P1 P2 P3 P4 P5"
 
-defaultGolden :: String -> String -> TestTree
-defaultGolden name output =
-  goldenVsString name (".golden" </> name </> "golden") (pure $ fromString output)
+hprop_renderNotes_for_edit_shows_focus :: Property
+hprop_renderNotes_for_edit_shows_focus =
+  withTests 1 . property $ do
+    noteMarkup (Note RightHand d4) === "P4"
+    editMarkup (Note RightHand d4) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
+
+----
+
+readGolden :: MonadIO m => FilePath -> m String
+readGolden name = liftIO $
+  readFile (".golden" </> name </> "golden")

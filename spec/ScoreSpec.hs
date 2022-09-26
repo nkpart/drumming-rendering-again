@@ -1,16 +1,17 @@
+{-# language OverloadedStrings #-}
 module ScoreSpec where
 
 import Score
-import Measure
-import Note
+import Elem (right, left)
 import RIO
-import Data.ListZipper hiding (focus)
+import Data.ListZipper
 import Hedgehog
 
 hprop_Score_appends :: Property
 hprop_Score_appends = withTests 1 . property $
-      let start = score Metadata [Measure [Note "X"]]
-          modified = insertMeasure start
+      let start = score Metadata []
+          modified = (insertNote . insertNote) start
       in do
-        allMeasures modified === [Measure [Note "X"], emptyMeasure]
-        (modified ^. measures . focus) === ListZipper [] Nothing []
+        allNotes modified === [right, left]
+        (start ^. notes . focus) === Nothing
+        (modified ^. notes . focus) === Just left
