@@ -4,7 +4,6 @@ module ScoreSpec where
 import Score
 import Elem (right, left)
 import RIO
-import Data.ListZipper
 import Hedgehog
 
 hprop_Score_appends :: Property

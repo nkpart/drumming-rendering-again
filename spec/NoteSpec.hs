@@ -4,7 +4,6 @@ import Elem
 import Hedgehog
 import Hedgehog.Gen as Gen
 
-
 genHand :: Gen Hand
 genHand = Gen.enumBounded
 

@@ -7,8 +7,10 @@ import Measure
 import Control.Lens.TH
 import RIO
 import Elem
-import Data.ListZipper
 import EditState
+import Data.List.NonEmpty.Zipper
+import RIO.State
+import Data.Maybe (fromJust)
 
 data Score =
   Score {
@@ -38,9 +40,10 @@ insertNote s =
 
 deleteNote :: Score -> Score
 deleteNote s =
-  if s^.notes & atEnd
-    then s & notes %~ execListZipperOpOr deleteStepLeft
-    else s & notes %~ execListZipperOpOr deleteStepRight
+  s & notes . focus . traverse . Elem.hand .~ Rest
+  -- if s^.notes & atEnd
+  --   then s & notes %~ execListZipperOpOr deleteStepLeft
+  --   else s & notes %~ execListZipperOpOr deleteStepRight
 
 toggleDotCut :: Score -> Score
 toggleDotCut s =
@@ -49,12 +52,12 @@ toggleDotCut s =
       n1' = n1 & Elem.duration .~ d1'
       n2' = n2 & Elem.duration .~ d2'
    in
-    s & notes %~ execListZipperOpOr (do
-                   _ <- setFocus (Just n1')
-                   _ <- moveRight
-                   _ <- setFocus (Just n2')
-                   _ <- moveLeft
-                   pure ())
+    s & notes %~ \v -> fromMaybe v (Just (replace (Just n1') v) 
+                      >>= Data.List.NonEmpty.Zipper.right
+                      >>= (Just . replace (Just n2'))
+                      >>= Data.List.NonEmpty.Zipper.left
+    )
+                   
 
 -- Crying out for a property based test
 -- for all inputs, total duration should be the same across the pair
@@ -72,14 +75,14 @@ toggleDots (n1, n2) =
 
 splitNote :: Score -> Score
 splitNote s =
-  let n = (s ^. notes . focus)
+  let n = (s ^. notes . to current)
   in
     case n of
       Just base ->
          let new = (Elem.duration . dval %~ decreaseDVal) base
          in
           s
-            & notes . focus .~ Just new
+            & notes %~ replace (Just new)
             & notes %~ insertMoveLeft (Just new)
       Nothing ->
         s
@@ -88,3 +91,46 @@ replaceNote :: Note -> Score -> Score
 replaceNote n =
  notes %~ insertMoveLeft (Just n)
 
+
+insertMoveLeft :: a -> Zipper a -> Zipper a
+insertMoveLeft n z = 
+  fromMaybe z $
+  Data.List.NonEmpty.Zipper.right (unshift n z)
+
+makeTriplet :: Score -> Score
+makeTriplet s =
+    s & notes %~ execState (do
+      v <- fromJust <$> getFocus
+      let halved = v & Elem.duration . dval %~ decreaseDVal
+      setFocus (Just $ halved & tripletStart .~ True)
+
+      modify (unshift $ Just halved)
+      moveRight
+
+      modify (unshift $ Just $ halved & tripletEnd .~ True)
+      moveRight
+    )
+
+      -- insertMoveRight _ _
+      -- insertMoveRight $ Just $ halved & tripletEnd .~ True
+      -- pure ()
+    -- )
+
+  -- let (n, nextState) = createNote (s^.editState)
+  -- in
+  --    s & notes %~ insertMoveLeft (Just n)
+  --      & editState .~ nextState
+
+
+getFocus :: State (Zipper (Maybe Note)) (Maybe Note)
+getFocus = gets current
+
+setFocus :: Maybe Note -> State (Zipper (Maybe Note)) ()
+setFocus = modify . replace
+
+focus :: Lens' (Zipper a) a
+focus = lens current (flip replace)
+
+moveRight :: State (Zipper a) ()
+moveRight =
+  modify $ \v -> fromMaybe v (Data.List.NonEmpty.Zipper.right v)

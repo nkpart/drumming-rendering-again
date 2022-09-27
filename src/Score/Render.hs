@@ -4,8 +4,8 @@ module Score.Render where
 import Score
 import Elem
 import Measure
-import Data.ListZipper
-import RIO
+import Data.List.NonEmpty.Zipper
+import RIO hiding (rights, lefts)
 import RIO.List (intersperse)
 
 renderScore :: Score -> String
@@ -33,24 +33,33 @@ data RenderTarget =
 
 -- TODO: line breaks after measures?
 renderNotes :: RenderTarget -> ZipNotes -> String
-renderNotes target (ListZipper l x r) =
-  let renderSide = fmap noteMarkup . catMaybes
+renderNotes target zz =
+  let (l, x, r) = (lefts zz, current zz, rights zz)
+      renderSide = fmap noteMarkup . catMaybes
       renderFocus =
         case target of
           ForPresentation -> pure . noteMarkup
           ForEdit -> pure . editMarkup
-      rendered = fold . intersperse " " $ renderSide (reverse l) <> maybe [] renderFocus x <> renderSide r
+      rendered = fold . intersperse " " $ renderSide l <> maybe [] renderFocus x <> renderSide r
   in if null rendered then "s4" else rendered
 
 -- TODO: Test Me
 noteMarkup :: Note -> String
-noteMarkup (Rest d) = "r" <> durationMarkup d 
-noteMarkup (Note h d) = 
-  case h of 
+noteMarkup (Note h d tStart tEnd) =
+  (if tStart 
+    then " \\tuplet 3/2 { "
+    else mempty)
+  <>
+  case h of
     RightHand -> "P"
     LeftHand -> "p"
+    Rest -> "r"
   <>
   durationMarkup d
+  <>
+  (if tEnd
+    then " } "
+    else "")
 
 durationMarkup :: Duration -> String
 durationMarkup (Duration d dt) =
@@ -65,10 +74,15 @@ durationMarkup (Duration d dt) =
 
 editMarkup :: Note -> String
 editMarkup c =
+  let prop =
+       case c ^. hand of
+        Rest -> "Rest.color"
+        _ -> "NoteHead.color"
+  in
    "\n" <>
-   "\\override NoteHead.color = \"red\"" <>
+   "\\override " <> prop <> " = \"red\"" <>
   "\n" <>
    " " <> noteMarkup c <> " " <>
   "\n" <>
-   "\\revert NoteHead.color" <>
+   "\\revert " <> prop <>
   "\n"

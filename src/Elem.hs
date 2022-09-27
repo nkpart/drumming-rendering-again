@@ -5,11 +5,14 @@ import Control.Lens.TH
 import Control.Lens ((%~))
 
 data Note
-  = Note { _hand :: Hand, _duration :: Duration }
-  | Rest { _duration :: Duration }
+  = Note { _hand :: Hand, _duration :: Duration, _tripletStart :: Bool, _tripletEnd :: Bool }
   deriving (Eq, Show)
 
-data Hand = LeftHand | RightHand deriving (Eq, Show, Enum, Bounded)
+data Hand = 
+    LeftHand 
+  | RightHand
+  | Rest
+   deriving (Eq, Show, Enum, Bounded)
 
 data Duration = Duration { _dval :: DVal, _dotted :: Bool } deriving (Eq, Show)
 
@@ -19,14 +22,15 @@ makeLenses ''Note
 makeLenses ''Duration
 
 left :: Note
-left = Note LeftHand (Duration D4 False)
+left = Note LeftHand (Duration D4 False) False False
 
 right :: Note
-right = Note RightHand (Duration D4 False)
+right = Note RightHand (Duration D4 False) False False
 
 swapHand :: Hand -> Hand
 swapHand LeftHand = RightHand
 swapHand RightHand = LeftHand
+swapHand Rest = RightHand
 
 decreaseDVal :: DVal -> DVal
 decreaseDVal D1 = D2

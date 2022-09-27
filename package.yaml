@@ -12,7 +12,7 @@ dependencies:
   - haskell-gi-base
   - gi-gtk
   - gi-gdk
-  - zippers
+  - nonempty-zipper
 
 executables:
   score:

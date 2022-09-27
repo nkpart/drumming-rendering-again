@@ -32,6 +32,7 @@ library
     , lens
     , list-zipper
     , mtl
+    , nonempty-zipper
     , process
     , repline
     , rio
@@ -54,6 +55,7 @@ executable score
     , lens
     , list-zipper
     , mtl
+    , nonempty-zipper
     , process
     , repline
     , rio
@@ -85,6 +87,7 @@ test-suite spec
     , lens
     , list-zipper
     , mtl
+    , nonempty-zipper
     , process
     , repline
     , rio

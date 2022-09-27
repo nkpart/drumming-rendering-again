@@ -16,9 +16,10 @@ import GHC.Exts (chr#, word2Int#)
 import RIO.Text (pack)
 import EditState (duration)
 import Elem (increaseDVal, decreaseDVal, duration, dval, toggleDotted, swapHand, hand)
-import Data.ListZipper as LZ
 import Control.Lens (_Just)
 import GI.Gdk (keyvalName)
+import RIO.Time
+import Data.List.NonEmpty.Zipper (left, right)
 
 
 -- TODO: Undo stack
@@ -55,6 +56,12 @@ gui = runSimpleApp $ do
     Gtk.boxPackStart box editStateLabel True True 0
     Gtk.boxPackStart box image True True 0
 
+    -- button <- new Gtk.Button [ #label := "Click me" ]
+    -- _ <- on button #clicked (set button [ 
+    --   #sensitive := False,
+    --   #label := "Thanks for clicking me" 
+    --   ])
+
     let updateUI = do
           Gtk.labelSetText editStateLabel =<< (pack . show . view editState <$> readIORef ref)
           sendToLilypond ref
@@ -71,8 +78,10 @@ gui = runSimpleApp $ do
           Just "Up" -> modifyIORef ref (notes . focus . _Just . hand %~ swapHand)
           Just "Down" -> modifyIORef ref (notes . focus . _Just . hand %~ swapHand)
 
-          Just "Left" -> modifyIORef ref (notes %~ execListZipperOpOr moveLeft)
-          Just "Right" -> modifyIORef ref (notes %~ execListZipperOpOr moveRight)
+          Just "Left" -> modifyIORef ref (notes %~ opOr left)
+          Just "Right" -> modifyIORef ref (notes %~ opOr right)
+
+          Just "3" -> modifyIORef ref makeTriplet
           _ -> pure ()
 
          case w2c v of
@@ -88,8 +97,8 @@ gui = runSimpleApp $ do
            '>' -> modifyIORef ref (editState . EditState.duration %~ Elem.toggleDotted)
 
            -- Movement
-           'h' -> modifyIORef ref (notes %~ execListZipperOpOr moveLeft)
-           'l' -> modifyIORef ref (notes %~ execListZipperOpOr moveRight)
+           'h' -> modifyIORef ref (notes %~ opOr left)
+           'l' -> modifyIORef ref (notes %~ opOr right)
 
            -- Change the current note
            '-' -> modifyIORef ref (notes . focus . _Just . Elem.duration . dval %~ decreaseDVal)
@@ -104,13 +113,18 @@ gui = runSimpleApp $ do
 
     Gtk.main
 
+opOr :: (t -> Maybe t) -> t -> t
+opOr f v = fromMaybe v (f v)
+
 
 sendToLilypond :: IORef Score -> IO ()
 sendToLilypond ref = do
+  print =<< getCurrentTime
   input <- readIORef ref <&> renderScore
   (_ec, _stdout, _stderr) <- readProcessWithExitCode "lilypond"
     ["--png", "-o", "out", "-"] input
   Prelude.putStrLn _stderr
+  print =<< getCurrentTime
   return ()
 
 debugPrint :: RIO App ()
@@ -121,11 +135,6 @@ debugPrint = do
   liftIO $ Prelude.putStrLn r
   liftIO $ Prelude.putStrLn p
 
-    -- button <- new Gtk.Button [ #label := "Click me" ]
-    -- _ <- on button #clicked (set button [ 
-    --   #sensitive := False,
-    --   #label := "Thanks for clicking me" 
-    --   ])
 
 w2c :: Word32 -> Char
 {-# INLINE w2c #-}
