@@ -45,8 +45,8 @@ renderNotes target zz =
 
 -- TODO: Test Me
 noteMarkup :: Note -> String
-noteMarkup (Note h d tStart tEnd) =
-  (if tStart 
+noteMarkup (Note h d tState) =
+  (if tState == Start 
     then " \\tuplet 3/2 { "
     else mempty)
   <>
@@ -57,20 +57,13 @@ noteMarkup (Note h d tStart tEnd) =
   <>
   durationMarkup d
   <>
-  (if tEnd
+  (if tState == End
     then " } "
     else "")
 
 durationMarkup :: Duration -> String
 durationMarkup (Duration d dt) =
-  case d of
-    D1 -> "1"
-    D2 -> "2"
-    D4 -> "4"
-    D8 -> "8"
-    D16 -> "16"
-    D32 -> "32"
-  <> if dt then "." else ""
+  show d <> if dt then "." else ""
 
 editMarkup :: Note -> String
 editMarkup c =

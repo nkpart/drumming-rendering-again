@@ -53,9 +53,9 @@ toggleDotCut s =
       n2' = n2 & Elem.duration .~ d2'
    in
     s & notes %~ \v -> fromMaybe v (Just (replace (Just n1') v) 
-                      >>= Data.List.NonEmpty.Zipper.right
+                      >>= right
                       >>= (Just . replace (Just n2'))
-                      >>= Data.List.NonEmpty.Zipper.left
+                      >>= left
     )
                    
 
@@ -63,13 +63,13 @@ toggleDotCut s =
 -- for all inputs, total duration should be the same across the pair
 toggleDots :: (Duration, Duration) -> (Duration, Duration)
 toggleDots (n1, n2) =
-    case (view dotted n1, view dotted n2, view dval n1 == view dval n2, view dval n2 == decreaseDVal (view dval n1)) of
+    case (view dotted n1, view dotted n2, noteValue n1 == noteValue n2, n2 == decreaseDVal n1) of
       (True, False, False, True) ->
         -- proper dotting
-        (n1 & dotted .~ False, n2 & dval %~ increaseDVal)
+        (n1 & dotted .~ False, n2 & increaseDVal)
       (False, False, True, _) ->
         -- proper no dotting
-        (n1 & dotted .~ True, n2 & dval %~ decreaseDVal)
+        (n1 & dotted .~ True, n2 & decreaseDVal)
       (_,_,_,_) ->
         (n1, n2)
 
@@ -79,7 +79,7 @@ splitNote s =
   in
     case n of
       Just base ->
-         let new = (Elem.duration . dval %~ decreaseDVal) base
+         let new = (Elem.duration %~ decreaseDVal) base
          in
           s
             & notes %~ replace (Just new)
@@ -94,22 +94,49 @@ replaceNote n =
 
 insertMoveLeft :: a -> Zipper a -> Zipper a
 insertMoveLeft n z = 
-  fromMaybe z $
-  Data.List.NonEmpty.Zipper.right (unshift n z)
+  fromMaybe z $ right (unshift n z)
 
 makeTriplet :: Score -> Score
 makeTriplet s =
-    s & notes %~ execState (do
+    s & notes %~ execThis (do
       v <- fromJust <$> getFocus
-      let halved = v & Elem.duration . dval %~ decreaseDVal
-      setFocus (Just $ halved & tripletStart .~ True)
+      let halved = v & Elem.duration %~ decreaseDVal
+      setFocus (Just $ halved & tripletState .~ Start)
 
-      modify (unshift $ Just halved)
-      moveRight
+      modify (unshift $ Just $ halved & tripletState .~ Covered)
+      opOrContinue right
 
-      modify (unshift $ Just $ halved & tripletEnd .~ True)
-      moveRight
+      modify (unshift $ Just $ halved & tripletState .~ End)
+      opOrContinue right
     )
+
+execThis :: StateT s Maybe a -> s -> s
+execThis action s =
+  fromMaybe s (execStateT action s)
+
+
+combineNotes :: Score -> Score
+combineNotes =
+  notes %~ execThis (do
+      v1 <- getFocus
+      opOrCancel right
+      v2 <- getFocus
+      opOrCancel left
+      case addNotes v1 v2 of
+        Nothing -> pure Nothing
+
+      pure ()
+    )
+
+
+-- unTriplet :: Score -> Score
+-- unTriplet =
+--     notes %~ execState (do
+--       v <- fromJust <$> getFocus
+--       case v ^. tripletState of
+--         None -> pure ()
+--         _ -> 
+--     )
 
       -- insertMoveRight _ _
       -- insertMoveRight $ Just $ halved & tripletEnd .~ True
@@ -122,15 +149,33 @@ makeTriplet s =
   --      & editState .~ nextState
 
 
-getFocus :: State (Zipper (Maybe Note)) (Maybe Note)
+getFocus :: StateT (Zipper (Maybe Note)) Maybe (Maybe Note)
 getFocus = gets current
 
-setFocus :: Maybe Note -> State (Zipper (Maybe Note)) ()
+setFocus :: Maybe Note -> StateT (Zipper (Maybe Note)) Maybe ()
 setFocus = modify . replace
 
 focus :: Lens' (Zipper a) a
 focus = lens current (flip replace)
 
-moveRight :: State (Zipper a) ()
+moveRight :: StateT (Zipper a) Maybe ()
 moveRight =
-  modify $ \v -> fromMaybe v (Data.List.NonEmpty.Zipper.right v)
+  opOrContinue right
+
+moveLeft :: StateT (Zipper a) Maybe ()
+moveLeft =
+  opOrContinue left
+
+opOrCancel :: (s -> Maybe s) -> StateT s Maybe ()
+opOrCancel f = do
+     x <- get
+     case f x of
+       Just v -> put v 
+       Nothing -> lift Nothing
+
+opOrContinue :: (s -> Maybe s) -> StateT s Maybe ()
+opOrContinue f = do
+     x <- get
+     case f x of
+       Just v -> put v 
+       Nothing -> pure ()

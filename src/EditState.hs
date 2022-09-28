@@ -15,11 +15,11 @@ data EditState =
 makeLenses ''EditState
 
 initState :: EditState
-initState = EditState RightHand (Duration D4 False)
+initState = EditState RightHand d4
 
 createNote :: EditState -> (Note, EditState)
 createNote es =
-    let thisNote = Note (es^.EditState.hand) (es^.EditState.duration) False False
+    let thisNote = Note (es^.EditState.hand) (es^.EditState.duration) None
         nextState = 
           es 
             & EditState.hand %~ swapHand

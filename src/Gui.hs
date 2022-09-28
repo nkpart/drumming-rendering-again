@@ -15,7 +15,7 @@ import GHC.Base (Char(C#))
 import GHC.Exts (chr#, word2Int#)
 import RIO.Text (pack)
 import EditState (duration)
-import Elem (increaseDVal, decreaseDVal, duration, dval, toggleDotted, swapHand, hand)
+import Elem (increaseDVal, decreaseDVal, duration, toggleDotted, swapHand, hand)
 import Control.Lens (_Just)
 import GI.Gdk (keyvalName)
 import RIO.Time
@@ -75,8 +75,8 @@ gui = runSimpleApp $ do
          unless (elem keyName . fmap Just $ ["Meta_L", "Shift_R"]) $
           Gtk.labelSetText debugShowLabel $ fromMaybe "nothing" keyName
          case keyName of
-          Just "Up" -> modifyIORef ref (notes . focus . _Just . hand %~ swapHand)
-          Just "Down" -> modifyIORef ref (notes . focus . _Just . hand %~ swapHand)
+          Just "Up" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
+          Just "Down" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
 
           Just "Left" -> modifyIORef ref (notes %~ opOr left)
           Just "Right" -> modifyIORef ref (notes %~ opOr right)
@@ -92,8 +92,8 @@ gui = runSimpleApp $ do
 
            -- Change the edit state
            -- SHIFT changes the edit state
-           '_' -> modifyIORef ref (editState . EditState.duration . dval %~ decreaseDVal)
-           '+' -> modifyIORef ref (editState . EditState.duration . dval %~ increaseDVal)
+           '_' -> modifyIORef ref (editState . EditState.duration %~ decreaseDVal)
+           '+' -> modifyIORef ref (editState . EditState.duration %~ increaseDVal)
            '>' -> modifyIORef ref (editState . EditState.duration %~ Elem.toggleDotted)
 
            -- Movement
@@ -101,8 +101,8 @@ gui = runSimpleApp $ do
            'l' -> modifyIORef ref (notes %~ opOr right)
 
            -- Change the current note
-           '-' -> modifyIORef ref (notes . focus . _Just . Elem.duration . dval %~ decreaseDVal)
-           '=' -> modifyIORef ref (notes . focus . _Just . Elem.duration . dval %~ increaseDVal)
+           '-' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ decreaseDVal)
+           '=' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ increaseDVal)
           --  '.' -> modifyIORef ref (notes . focus . _Just . Elem.duration %~ Elem.toggleDotted)
 
            _ -> print ()
@@ -115,7 +115,6 @@ gui = runSimpleApp $ do
 
 opOr :: (t -> Maybe t) -> t -> t
 opOr f v = fromMaybe v (f v)
-
 
 sendToLilypond :: IORef Score -> IO ()
 sendToLilypond ref = do

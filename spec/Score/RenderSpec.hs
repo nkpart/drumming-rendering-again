@@ -20,9 +20,9 @@ hprop_renderScore_empty = withTests 1 . property $ do
 hprop_renderScore_with_notes :: Property
 hprop_renderScore_with_notes = withTests 1 . property $
     let
-      theNotes = fromNonEmpty $ Just <$> (right&duration.~d1) :| [ left&duration.~d2, right&duration.~d4, left&duration.~d8, right&duration.~d16]
+      theNotes = fromNonEmpty $ (right&duration.~d1) :| [ left&duration.~d2, right&duration.~d4, left&duration.~d8, right&duration.~d16]
       -- theseNotes = Just <$> ListZipper [left&duration.~d2, right&duration.~d1] (right&duration.~d4) [left&duration.~d8, right&duration.~d16]
-      thisScore = Score initState Metadata (fromMaybe theNotes $ Just theNotes >>= Z.right >>= Z.right)
+      thisScore = Score initState Metadata (Just $ fromMaybe theNotes $ Just theNotes >>= Z.right >>= Z.right)
     in do
         v <- readGolden (show 'renderScore <> "-somewhat-complicated") 
         v === renderScore thisScore
@@ -35,11 +35,17 @@ hprop_renderNotes_orders_left_to_right =
 hprop_renderNotes_for_edit_shows_focus :: Property
 hprop_renderNotes_for_edit_shows_focus =
   withTests 1 . property $ do
-    noteMarkup (Note RightHand d4 False False) === "P4"
-    editMarkup (Note RightHand d4 False False) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
+    noteMarkup (Note RightHand d4 None) === "P4"
+    editMarkup (Note RightHand d4 None) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
 
 ----
 
 readGolden :: MonadIO m => FilePath -> m String
 readGolden name = liftIO $
   readFile (".golden" </> name </> "golden")
+
+left :: Note
+left = Note LeftHand d4 None
+
+right :: Note
+right = Note RightHand d4 None

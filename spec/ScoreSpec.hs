@@ -2,9 +2,9 @@
 module ScoreSpec where
 
 import Score
-import Elem (right, left)
 import RIO
 import Hedgehog
+import Elem
 
 hprop_Score_appends :: Property
 hprop_Score_appends = withTests 1 . property $
@@ -14,3 +14,9 @@ hprop_Score_appends = withTests 1 . property $
         allNotes modified === [right, left]
         (start ^. notes . focus) === Nothing
         (modified ^. notes . focus) === Just left
+
+left :: Note
+left = Note LeftHand d4 None
+
+right :: Note
+right = Note RightHand d4 None
