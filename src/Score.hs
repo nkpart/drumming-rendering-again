@@ -10,7 +10,7 @@ import Elem
 import EditState
 import Data.List.NonEmpty.Zipper
 import RIO.State
-import Data.Maybe (fromJust)
+import Control.Lens ((?~), _Just)
 
 data Score =
   Score {
@@ -26,7 +26,7 @@ data Metadata = Metadata
 makeLenses ''Score
 
 allNotes :: Score -> [Note]
-allNotes = catMaybes . nelist . view notes
+allNotes = maybe [] nelist . view notes
 
 score :: Metadata -> [Note] -> Score
 score md ns = Score initState md (editList ns)
@@ -35,29 +35,33 @@ insertNote :: Score -> Score
 insertNote s =
   let (n, nextState) = createNote (s^.editState)
   in
-     s & notes %~ insertMoveLeft (Just n)
-       & editState .~ nextState
+    s & notes ?~
+        (case view notes s of
+          Just v -> insertMoveLeft n v
+          Nothing -> fromNonEmpty (pure n)
+          )
+      & editState .~ nextState
 
 deleteNote :: Score -> Score
 deleteNote s =
-  s & notes . focus . traverse . Elem.hand .~ Rest
+  s & notes . _Just . focus . Elem.hand .~ Rest
   -- if s^.notes & atEnd
   --   then s & notes %~ execListZipperOpOr deleteStepLeft
   --   else s & notes %~ execListZipperOpOr deleteStepRight
 
 toggleDotCut :: Score -> Score
 toggleDotCut s =
-  let Just (n1, n2) = getPair (view notes s) -- TODO whoopsie
+  let Just (n1, n2) = getPair =<< view notes s -- TODO whoopsie
       (d1', d2') = toggleDots (n1 ^. Elem.duration, n2 ^. Elem.duration)
       n1' = n1 & Elem.duration .~ d1'
       n2' = n2 & Elem.duration .~ d2'
    in
-    s & notes %~ \v -> fromMaybe v (Just (replace (Just n1') v) 
+    s & notes . _Just %~ \v -> fromMaybe v (Just (replace n1' v)
                       >>= right
-                      >>= (Just . replace (Just n2'))
+                      >>= (Just . replace n2')
                       >>= left
     )
-                   
+
 
 -- Crying out for a property based test
 -- for all inputs, total duration should be the same across the pair
@@ -75,38 +79,37 @@ toggleDots (n1, n2) =
 
 splitNote :: Score -> Score
 splitNote s =
-  let n = (s ^. notes . to current)
+  let n = (s ^? notes . _Just . to current)
   in
     case n of
       Just base ->
          let new = (Elem.duration %~ decreaseDVal) base
          in
           s
-            & notes %~ replace (Just new)
-            & notes %~ insertMoveLeft (Just new)
+            & notes . _Just %~ replace new
+            & notes . _Just %~ insertMoveLeft new
       Nothing ->
         s
 
 replaceNote :: Note -> Score -> Score
 replaceNote n =
- notes %~ insertMoveLeft (Just n)
-
+ notes . _Just %~ insertMoveLeft n
 
 insertMoveLeft :: a -> Zipper a -> Zipper a
-insertMoveLeft n z = 
+insertMoveLeft n z =
   fromMaybe z $ right (unshift n z)
 
 makeTriplet :: Score -> Score
 makeTriplet s =
-    s & notes %~ execThis (do
-      v <- fromJust <$> getFocus
+    s & notes . _Just %~ execThis (do
+      v <- getFocus
       let halved = v & Elem.duration %~ decreaseDVal
-      setFocus (Just $ halved & tripletState .~ Start)
+      setFocus (halved & tripletState .~ Start)
 
-      modify (unshift $ Just $ halved & tripletState .~ Covered)
+      modify (unshift $ halved & tripletState .~ Covered)
       opOrContinue right
 
-      modify (unshift $ Just $ halved & tripletState .~ End)
+      modify (unshift $ halved & tripletState .~ End)
       opOrContinue right
     )
 
@@ -117,13 +120,17 @@ execThis action s =
 
 combineNotes :: Score -> Score
 combineNotes =
-  notes %~ execThis (do
+  notes . _Just %~ execThis (do
       v1 <- getFocus
       opOrCancel right
       v2 <- getFocus
       opOrCancel left
       case addNotes v1 v2 of
-        Nothing -> pure Nothing
+        Nothing -> lift Nothing
+        Just v -> do
+          modify (\s -> fromMaybe s $ delete s)
+          modify (\s -> fromMaybe s $ delete s)
+          modify (unshift v)
 
       pure ()
     )
@@ -149,10 +156,10 @@ combineNotes =
   --      & editState .~ nextState
 
 
-getFocus :: StateT (Zipper (Maybe Note)) Maybe (Maybe Note)
+getFocus :: StateT (Zipper Note) Maybe Note
 getFocus = gets current
 
-setFocus :: Maybe Note -> StateT (Zipper (Maybe Note)) Maybe ()
+setFocus :: Note -> StateT (Zipper Note) Maybe ()
 setFocus = modify . replace
 
 focus :: Lens' (Zipper a) a
@@ -170,12 +177,12 @@ opOrCancel :: (s -> Maybe s) -> StateT s Maybe ()
 opOrCancel f = do
      x <- get
      case f x of
-       Just v -> put v 
+       Just v -> put v
        Nothing -> lift Nothing
 
 opOrContinue :: (s -> Maybe s) -> StateT s Maybe ()
 opOrContinue f = do
      x <- get
      case f x of
-       Just v -> put v 
+       Just v -> put v
        Nothing -> pure ()

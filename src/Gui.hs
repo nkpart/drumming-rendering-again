@@ -78,8 +78,8 @@ gui = runSimpleApp $ do
           Just "Up" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
           Just "Down" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
 
-          Just "Left" -> modifyIORef ref (notes %~ opOr left)
-          Just "Right" -> modifyIORef ref (notes %~ opOr right)
+          Just "Left" -> modifyIORef ref (notes . _Just %~ opOr left)
+          Just "Right" -> modifyIORef ref (notes . _Just %~ opOr right)
 
           Just "3" -> modifyIORef ref makeTriplet
           _ -> pure ()
@@ -97,8 +97,8 @@ gui = runSimpleApp $ do
            '>' -> modifyIORef ref (editState . EditState.duration %~ Elem.toggleDotted)
 
            -- Movement
-           'h' -> modifyIORef ref (notes %~ opOr left)
-           'l' -> modifyIORef ref (notes %~ opOr right)
+           'h' -> modifyIORef ref (notes . _Just %~ opOr left)
+           'l' -> modifyIORef ref (notes . _Just %~ opOr right)
 
            -- Change the current note
            '-' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ decreaseDVal)

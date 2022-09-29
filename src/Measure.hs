@@ -18,9 +18,9 @@ copy :: Zipper a -> Zipper a
 copy x =
    push (current x) x
 
-getPair :: Zipper (Maybe a) -> Maybe (a,a)
+getPair :: Zipper a -> Maybe (a,a)
 getPair z = do
-  x <- current z
+  let x = current z
   z2 <- right z
-  y <- current z2
+  let y = current z2
   pure (x, y)

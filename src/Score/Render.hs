@@ -3,7 +3,6 @@ module Score.Render where
 
 import Score
 import Elem
-import Measure
 import Data.List.NonEmpty.Zipper
 import RIO hiding (rights, lefts)
 import RIO.List (intersperse)
@@ -18,7 +17,7 @@ renderScore (Score _ _ ms) = unlines [
   "        composer = \"Your Name Here\"",
   "    }",
   "    notes = \\drummode {",
-  "      " <> renderNotes ForEdit ms,
+  "      " <> maybe "" (renderNotes ForEdit) ms,
   "    }",
   "    \\drums {",
   "      \\set strictBeatBeaming = ##t",
@@ -32,15 +31,15 @@ data RenderTarget =
   ForPresentation | ForEdit
 
 -- TODO: line breaks after measures?
-renderNotes :: RenderTarget -> ZipNotes -> String
+renderNotes :: RenderTarget -> Zipper Note -> String
 renderNotes target zz =
   let (l, x, r) = (lefts zz, current zz, rights zz)
-      renderSide = fmap noteMarkup . catMaybes
+      renderSide = fmap noteMarkup
       renderFocus =
         case target of
           ForPresentation -> pure . noteMarkup
           ForEdit -> pure . editMarkup
-      rendered = fold . intersperse " " $ renderSide l <> maybe [] renderFocus x <> renderSide r
+      rendered = fold . intersperse " " $ renderSide l <> renderFocus x <> renderSide r
   in if null rendered then "s4" else rendered
 
 -- TODO: Test Me
