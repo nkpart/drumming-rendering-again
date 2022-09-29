@@ -35,8 +35,8 @@ hprop_renderNotes_orders_left_to_right =
 hprop_renderNotes_for_edit_shows_focus :: Property
 hprop_renderNotes_for_edit_shows_focus =
   withTests 1 . property $ do
-    noteMarkup (Note RightHand d4 None) === "P4"
-    editMarkup (Note RightHand d4 None) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
+    noteMarkup (Note RightHand d4 None mempty) === "P4"
+    editMarkup (Note RightHand d4 None mempty) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
 
 ----
 
@@ -45,7 +45,7 @@ readGolden name = liftIO $
   readFile (".golden" </> name </> "golden")
 
 left :: Note
-left = Note LeftHand d4 None
+left = Note LeftHand d4 None mempty
 
 right :: Note
-right = Note RightHand d4 None
+right = Note RightHand d4 None mempty

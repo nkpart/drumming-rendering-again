@@ -67,7 +67,7 @@ test-suite spec
   main-is: Driver.hs
   other-modules:
       EditNoteSpec
-      NoteSpec
+      ElemSpec
       Score.RenderSpec
       ScoreSpec
       ZipNotesSpec

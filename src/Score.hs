@@ -1,6 +1,8 @@
 {-# language TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
 
+{-# options_ghc -Wno-deprecations #-}
+
 module Score where
 
 import Measure
@@ -10,6 +12,7 @@ import Elem
 import EditState
 import Data.List.NonEmpty.Zipper
 import RIO.State
+    ( StateT, MonadState(put, get), gets, execStateT, modify )
 import Control.Lens ((?~), _Just)
 
 data Score =
@@ -52,10 +55,11 @@ deleteNote s =
 toggleDotCut :: Score -> Score
 toggleDotCut s =
   let Just (n1, n2) = getPair =<< view notes s -- TODO whoopsie
-      (d1', d2') = toggleDots (n1 ^. Elem.duration, n2 ^. Elem.duration)
+      dots = (n1 ^. Elem.duration, n2 ^. Elem.duration)
+      (d1', d2') = toggleDots dots
       n1' = n1 & Elem.duration .~ d1'
       n2' = n2 & Elem.duration .~ d2'
-   in
+   in traceShow (dots, (d1',d2'))
     s & notes . _Just %~ \v -> fromMaybe v (Just (replace n1' v)
                       >>= right
                       >>= (Just . replace n2')
@@ -67,7 +71,7 @@ toggleDotCut s =
 -- for all inputs, total duration should be the same across the pair
 toggleDots :: (Duration, Duration) -> (Duration, Duration)
 toggleDots (n1, n2) =
-    case (view dotted n1, view dotted n2, noteValue n1 == noteValue n2, n2 == decreaseDVal n1) of
+    case (view dotted n1, view dotted n2, noteValue n1 == noteValue n2, noteValue n2 == noteValue (decreaseDVal n1)) of
       (True, False, False, True) ->
         -- proper dotting
         (n1 & dotted .~ False, n2 & increaseDVal)

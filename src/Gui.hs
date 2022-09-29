@@ -15,7 +15,7 @@ import GHC.Base (Char(C#))
 import GHC.Exts (chr#, word2Int#)
 import RIO.Text (pack)
 import EditState (duration)
-import Elem (increaseDVal, decreaseDVal, duration, toggleDotted, swapHand, hand)
+import Elem (increaseDVal, decreaseDVal, duration, toggleDotted, swapHand, hand, toggleMod, Mod (Roll), mods)
 import Control.Lens (_Just)
 import GI.Gdk (keyvalName)
 import RIO.Time
@@ -77,11 +77,10 @@ gui = runSimpleApp $ do
          case keyName of
           Just "Up" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
           Just "Down" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
-
           Just "Left" -> modifyIORef ref (notes . _Just %~ opOr left)
           Just "Right" -> modifyIORef ref (notes . _Just %~ opOr right)
-
           Just "3" -> modifyIORef ref makeTriplet
+          Just "parenright" -> modifyIORef ref (notes . _Just . focus . mods %~ toggleMod Roll)
           _ -> pure ()
 
          case w2c v of

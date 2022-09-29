@@ -17,7 +17,7 @@ renderScore (Score _ _ ms) = unlines [
   "        composer = \"Your Name Here\"",
   "    }",
   "    notes = \\drummode {",
-  "      " <> maybe "" (renderNotes ForEdit) ms,
+  "      " <> maybe "s4" (renderNotes ForEdit) ms,
   "    }",
   "    \\drums {",
   "      \\set strictBeatBeaming = ##t",
@@ -40,11 +40,11 @@ renderNotes target zz =
           ForPresentation -> pure . noteMarkup
           ForEdit -> pure . editMarkup
       rendered = fold . intersperse " " $ renderSide l <> renderFocus x <> renderSide r
-  in if null rendered then "s4" else rendered
+  in rendered
 
 -- TODO: Test Me
 noteMarkup :: Note -> String
-noteMarkup (Note h d tState) =
+noteMarkup (Note h d tState m) =
   (if tState == Start 
     then " \\tuplet 3/2 { "
     else mempty)
@@ -56,9 +56,14 @@ noteMarkup (Note h d tState) =
   <>
   durationMarkup d
   <>
+  foldMap (renderMod d) m
+  <>
   (if tState == End
     then " } "
     else "")
+
+renderMod :: Duration -> Elem.Mod -> String
+renderMod (Duration n _) Elem.Roll = "~:" <> show (n*2*2)
 
 durationMarkup :: Duration -> String
 durationMarkup (Duration d dt) =

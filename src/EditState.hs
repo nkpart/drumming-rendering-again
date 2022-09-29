@@ -19,7 +19,7 @@ initState = EditState RightHand d4
 
 createNote :: EditState -> (Note, EditState)
 createNote es =
-    let thisNote = Note (es^.EditState.hand) (es^.EditState.duration) None
+    let thisNote = Note (es^.EditState.hand) (es^.EditState.duration) None mempty
         nextState = 
           es 
             & EditState.hand %~ swapHand
