@@ -12,7 +12,3 @@ hprop_swapHand = property $ do
       h <- forAll genHand
       swapHand h /== h
 
-hprop_increaseDVal :: Property
-hprop_increaseDVal = property $ do 
-      increaseDVal d8 === d4
-      increaseDVal d16 === d8

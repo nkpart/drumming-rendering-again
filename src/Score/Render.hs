@@ -63,11 +63,11 @@ noteMarkup (Note h d tState m) =
     else "")
 
 renderMod :: Duration -> Elem.Mod -> String
-renderMod (Duration n _) Elem.Roll = "~:" <> show (n*2*2)
+renderMod d Elem.Roll = "~:" <> show (noteValue d * 2 * 2)
 
 durationMarkup :: Duration -> String
-durationMarkup (Duration d dt) =
-  show d <> if dt then "." else ""
+durationMarkup d =
+  show (noteValue d) <> if view dotted d then "." else ""
 
 editMarkup :: Note -> String
 editMarkup c =

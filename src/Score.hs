@@ -47,10 +47,7 @@ insertNote s =
 
 deleteNote :: Score -> Score
 deleteNote s =
-  s & notes . _Just . focus . Elem.hand .~ Rest
-  -- if s^.notes & atEnd
-  --   then s & notes %~ execListZipperOpOr deleteStepLeft
-  --   else s & notes %~ execListZipperOpOr deleteStepRight
+  s & notes %~ (>>= delete)
 
 toggleDotCut :: Score -> Score
 toggleDotCut s =
@@ -71,13 +68,13 @@ toggleDotCut s =
 -- for all inputs, total duration should be the same across the pair
 toggleDots :: (Duration, Duration) -> (Duration, Duration)
 toggleDots (n1, n2) =
-    case (view dotted n1, view dotted n2, noteValue n1 == noteValue n2, noteValue n2 == noteValue (decreaseDVal n1)) of
+    case (view dotted n1, view dotted n2, noteValue n1 == noteValue n2, noteValue n2 == noteValue (halveDuration n1)) of
       (True, False, False, True) ->
         -- proper dotting
-        (n1 & dotted .~ False, n2 & increaseDVal)
+        (n1 & dotted .~ False, n2 & doubleDuration)
       (False, False, True, _) ->
         -- proper no dotting
-        (n1 & dotted .~ True, n2 & decreaseDVal)
+        (n1 & dotted .~ True, n2 & halveDuration)
       (_,_,_,_) ->
         (n1, n2)
 
@@ -87,7 +84,7 @@ splitNote s =
   in
     case n of
       Just base ->
-         let new = (Elem.duration %~ decreaseDVal) base
+         let new = (Elem.duration %~ halveDuration) base
          in
           s
             & notes . _Just %~ replace new
@@ -107,7 +104,7 @@ makeTriplet :: Score -> Score
 makeTriplet s =
     s & notes . _Just %~ execThis (do
       v <- getFocus
-      let halved = v & Elem.duration %~ decreaseDVal
+      let halved = v & Elem.duration %~ halveDuration
       setFocus (halved & tripletState .~ Start)
 
       modify (unshift $ halved & tripletState .~ Covered)
@@ -120,7 +117,6 @@ makeTriplet s =
 execThis :: StateT s Maybe a -> s -> s
 execThis action s =
   fromMaybe s (execStateT action s)
-
 
 combineNotes :: Score -> Score
 combineNotes =

@@ -15,7 +15,7 @@ import GHC.Base (Char(C#))
 import GHC.Exts (chr#, word2Int#)
 import RIO.Text (pack)
 import EditState (duration)
-import Elem (increaseDVal, decreaseDVal, duration, toggleDotted, swapHand, hand, toggleMod, Mod (Roll), mods)
+import Elem (doubleDuration, halveDuration, duration, toggleDotted, swapHand, hand, toggleMod, Mod (Roll), mods)
 import Control.Lens (_Just)
 import GI.Gdk (keyvalName)
 import RIO.Time
@@ -91,8 +91,8 @@ gui = runSimpleApp $ do
 
            -- Change the edit state
            -- SHIFT changes the edit state
-           '_' -> modifyIORef ref (editState . EditState.duration %~ decreaseDVal)
-           '+' -> modifyIORef ref (editState . EditState.duration %~ increaseDVal)
+           '_' -> modifyIORef ref (editState . EditState.duration %~ halveDuration)
+           '+' -> modifyIORef ref (editState . EditState.duration %~ doubleDuration)
            '>' -> modifyIORef ref (editState . EditState.duration %~ Elem.toggleDotted)
 
            -- Movement
@@ -100,8 +100,8 @@ gui = runSimpleApp $ do
            'l' -> modifyIORef ref (notes . _Just %~ opOr right)
 
            -- Change the current note
-           '-' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ decreaseDVal)
-           '=' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ increaseDVal)
+           '-' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ halveDuration)
+           '=' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ doubleDuration)
           --  '.' -> modifyIORef ref (notes . focus . _Just . Elem.duration %~ Elem.toggleDotted)
 
            _ -> print ()
