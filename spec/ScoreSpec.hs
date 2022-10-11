@@ -1,23 +1,33 @@
-{-# language OverloadedStrings #-}
+{-# language OverloadedStrings, OverloadedLists #-}
 module ScoreSpec where
 
 import Score
 import RIO
 import Hedgehog
 import Elem
-import Control.Lens (_Just)
+import Note
+
+trip :: ElemSeq -> Elem
+trip = Triplet Note.d8
+note :: Elem
+note = Single Note.note
+noted :: Duration -> Elem
+noted d = Single $ Note.note & Note.duration .~ d
+
+note16 :: Elem
+note16 = noted Note.d16
 
 hprop_Score_appends :: Property
 hprop_Score_appends = withTests 1 . property $
-      let start = score Metadata []
-          modified = (insertNote . insertNote) start
+      let start = score []
+          modified = execThis (insertNote >> insertNote) start
       in do
-        allNotes modified === [right, left]
-        (start ^. notes) === Nothing
-        (modified ^.. notes . _Just . focus) === [left]
+        view notes modified === [Single right, Single left]
+        -- (start ^. notes) === Nothing -- TODO
+        -- (modified ^.. notes . _Just . focus) === [left] -- TODO
 
 left :: Note
-left = Note LeftHand d4 None mempty
+left = Note LeftHand d4 mempty
 
 right :: Note
-right = Note RightHand d4 None mempty
+right = Note RightHand d4 mempty

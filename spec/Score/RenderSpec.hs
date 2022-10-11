@@ -1,4 +1,4 @@
-{-# language TemplateHaskellQuotes, OverloadedStrings #-}
+{-# language TemplateHaskellQuotes, OverloadedStrings, OverloadedLists #-}
 module Score.RenderSpec where
 
 import Score
@@ -9,34 +9,34 @@ import RIO
 import Hedgehog
 import EditState (initState)
 import Elem
-import Data.List.NonEmpty.Zipper (fromNonEmpty)
-import qualified Data.List.NonEmpty.Zipper as Z
+import Note
 
 hprop_renderScore_empty :: Property
 hprop_renderScore_empty = withTests 1 . property $ do
     v <- readGolden (show 'renderScore <> "blank")
-    v === renderScore (score Metadata [])
+    v === renderScore (score [])
 
 hprop_renderScore_with_notes :: Property
 hprop_renderScore_with_notes = withTests 1 . property $
     let
-      theNotes = fromNonEmpty $ (right&duration.~d1) :| [ left&duration.~d2, right&duration.~d4, left&duration.~d8, right&duration.~d16]
-      -- theseNotes = Just <$> ListZipper [left&duration.~d2, right&duration.~d1] (right&duration.~d4) [left&duration.~d8, right&duration.~d16]
-      thisScore = Score initState Metadata (Just $ fromMaybe theNotes $ Just theNotes >>= Z.right >>= Z.right)
+      theNotes = [right&_Single.duration.~d1,  
+        left&_Single.duration.~d2, 
+        right&_Single.duration.~d4, 
+        left&_Single.duration.~d8, 
+        right&_Single.duration.~d16]
+      thisScore = 
+          Score initState (Cursor 2 Nothing) theNotes
+      -- thisScore = Score initState Metadata (Just $ fromMaybe theNotes $ Just theNotes >>= Z.right >>= Z.right)
     in do
         v <- readGolden (show 'renderScore <> "-somewhat-complicated") 
         v === renderScore thisScore
 
-hprop_renderNotes_orders_left_to_right :: Property
-hprop_renderNotes_orders_left_to_right =
-  withTests 1 . property $ pure ()
-    -- renderNotes ForPresentation (Just <$> ListZipper ["P2", "P1"] "P3" ["P4", "P5"]) === "P1 P2 P3 P4 P5"
-
 hprop_renderNotes_for_edit_shows_focus :: Property
 hprop_renderNotes_for_edit_shows_focus =
   withTests 1 . property $ do
-    noteMarkup (Note RightHand d4 None mempty) === "P4"
-    editMarkup (Note RightHand d4 None mempty) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
+    noteMarkup (Note RightHand d4 mempty) === "P4"
+    -- TODO
+    -- editMarkup (Note RightHand d4 mempty) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
 
 ----
 
@@ -44,8 +44,8 @@ readGolden :: MonadIO m => FilePath -> m String
 readGolden name = liftIO $
   readFile (".golden" </> name </> "golden")
 
-left :: Note
-left = Note LeftHand d4 None mempty
+left :: Elem
+left = Single $ Note LeftHand d4 mempty
 
-right :: Note
-right = Note RightHand d4 None mempty
+right :: Elem
+right = Single $ Note RightHand d4 mempty

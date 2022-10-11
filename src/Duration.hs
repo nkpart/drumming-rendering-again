@@ -2,6 +2,8 @@
 module Duration (
   Duration,
   d1,d2,d4,d8,d16,d32,
+  HasDuration,
+  duration,
   noteValue,
   toggleDotted,
   addDurations,
@@ -18,9 +20,13 @@ import RIO
 data Duration = Duration { 
    dval :: Int,
   _dotted :: Bool 
-  } deriving (Eq, Show, Ord)
+  } deriving (Eq, Ord)
 
-makeLenses ''Duration
+makeClassy ''Duration
+
+instance Show Duration where
+  show (Duration d dt) =
+    show d <> if dt then "." else ""
 
 noteValue :: Duration -> Int
 noteValue = dval

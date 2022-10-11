@@ -14,17 +14,11 @@ import Prelude (print)
 import GHC.Base (Char(C#))
 import GHC.Exts (chr#, word2Int#)
 import RIO.Text (pack)
-import EditState (duration)
-import Elem (doubleDuration, halveDuration, duration, toggleDotted, swapHand, hand, toggleMod, Mod (Roll), mods)
-import Control.Lens (_Just)
+import Note
 import GI.Gdk (keyvalName)
 import RIO.Time
-import Data.List.NonEmpty.Zipper (left, right)
-
 
 -- TODO: Undo stack
--- TODO: 
-
 
 data App = App {
  _logfunc :: !LogFunc,
@@ -38,7 +32,7 @@ instance HasLogFunc App where logFuncL = logfunc
 gui :: IO ()
 gui = runSimpleApp $ do
   lf <- view logFuncL
-  ref <- newIORef (score Metadata [])
+  ref <- newIORef (score [])
   runRIO (App lf ref) $ do
     _ <- Gtk.init Nothing
     win <- new Gtk.Window [ #title := "Hi there" ]
@@ -74,34 +68,35 @@ gui = runSimpleApp $ do
          keyName <- keyvalName v
          unless (elem keyName . fmap Just $ ["Meta_L", "Shift_R"]) $
           Gtk.labelSetText debugShowLabel $ fromMaybe "nothing" keyName
+         let action a = modifyIORef ref (execThis a)
          case keyName of
-          Just "Up" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
-          Just "Down" -> modifyIORef ref (notes . _Just . focus . hand %~ swapHand)
-          Just "Left" -> modifyIORef ref (notes . _Just %~ opOr left)
-          Just "Right" -> modifyIORef ref (notes . _Just %~ opOr right)
-          Just "3" -> modifyIORef ref makeTriplet
-          Just "parenright" -> modifyIORef ref (notes . _Just . focus . mods %~ toggleMod Roll)
+          Just "Up" -> action (modifyFocusNote $ hand %~ swapHand)
+          Just "Down" -> action (modifyFocusNote $ hand %~ swapHand)
+          Just "Left" -> action moveLeft
+          Just "Right" -> action moveRight
+          Just "3" -> action makeTriplet
+          Just "parenright" -> action (modifyFocusNote $ mods %~ toggleMod Roll)
           _ -> pure ()
 
          case w2c v of
-           'n' -> modifyIORef ref insertNote
-           's' -> modifyIORef ref splitNote
-           'x' -> modifyIORef ref deleteNote
-           '.' -> modifyIORef ref toggleDotCut
+           'n' -> action insertNote
+           's' -> action splitNote
+           'x' -> action deleteFocus -- TODO inconsistent
+           '.' -> action toggleDotCut
 
            -- Change the edit state
            -- SHIFT changes the edit state
-           '_' -> modifyIORef ref (editState . EditState.duration %~ halveDuration)
-           '+' -> modifyIORef ref (editState . EditState.duration %~ doubleDuration)
-           '>' -> modifyIORef ref (editState . EditState.duration %~ Elem.toggleDotted)
+           '_' -> modifyIORef ref (editState . duration %~ halveDuration)
+           '+' -> modifyIORef ref (editState . duration %~ doubleDuration)
+           '>' -> modifyIORef ref (editState . duration %~ toggleDotted)
 
            -- Movement
-           'h' -> modifyIORef ref (notes . _Just %~ opOr left)
-           'l' -> modifyIORef ref (notes . _Just %~ opOr right)
+           'h' -> modifyIORef ref (execThis moveLeft)
+           'l' -> modifyIORef ref (execThis moveRight)
 
            -- Change the current note
-           '-' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ halveDuration)
-           '=' -> modifyIORef ref (notes . _Just . focus . Elem.duration %~ doubleDuration)
+           '-' -> action (modifyFocusNote $ duration %~ halveDuration)
+           '=' -> action (modifyFocusNote $ duration %~ doubleDuration)
           --  '.' -> modifyIORef ref (notes . focus . _Just . Elem.duration %~ Elem.toggleDotted)
 
            _ -> print ()
@@ -118,10 +113,13 @@ opOr f v = fromMaybe v (f v)
 sendToLilypond :: IORef Score -> IO ()
 sendToLilypond ref = do
   print =<< getCurrentTime
+  Prelude.putStrLn "Rendering"
   input <- readIORef ref <&> renderScore
   (_ec, _stdout, _stderr) <- readProcessWithExitCode "lilypond"
     ["--png", "-o", "out", "-"] input
-  Prelude.putStrLn _stderr
+  case _ec of 
+    ExitSuccess -> pure ()
+    ExitFailure _ -> Prelude.putStrLn _stderr
   print =<< getCurrentTime
   return ()
 

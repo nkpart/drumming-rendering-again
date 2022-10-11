@@ -3,12 +3,14 @@ module Score.Render where
 
 import Score
 import Elem
-import Data.List.NonEmpty.Zipper
+import Duration
+import Note
 import RIO hiding (rights, lefts)
-import RIO.List (intersperse)
+import RIO.Seq (intersperse)
+import Control.Lens (imap)
 
 renderScore :: Score -> String
-renderScore (Score _ _ ms) = unlines [
+renderScore (Score _a cur ms) = unlines [
   "    \\version \"2.20.0\"",
   "    \\include \"pipe-band-drumming.ly\"",
   "    \\header {",
@@ -17,7 +19,7 @@ renderScore (Score _ _ ms) = unlines [
   "        composer = \"Your Name Here\"",
   "    }",
   "    notes = \\drummode {",
-  "      " <> maybe "s4" (renderNotes ForEdit) ms,
+  "      " <> if isEmpty ms then "s4" else elemSeqMarkup cur ms,
   "    }",
   "    \\drums {",
   "      \\set strictBeatBeaming = ##t",
@@ -26,29 +28,44 @@ renderScore (Score _ _ ms) = unlines [
   "    }"
   ]
 
+isEmpty :: ElemSeq -> Bool
+isEmpty (ElemSeq ms) = null ms
 
 data RenderTarget =
   ForPresentation | ForEdit
 
 -- TODO: line breaks after measures?
-renderNotes :: RenderTarget -> Zipper Note -> String
-renderNotes target zz =
-  let (l, x, r) = (lefts zz, current zz, rights zz)
-      renderSide = fmap noteMarkup
-      renderFocus =
-        case target of
-          ForPresentation -> pure . noteMarkup
-          ForEdit -> pure . editMarkup
-      rendered = fold . intersperse " " $ renderSide l <> renderFocus x <> renderSide r
-  in rendered
+
+elemSeqMarkup :: Cursor -> ElemSeq -> String
+elemSeqMarkup (Cursor ix next) (ElemSeq es) =
+      fold . intersperse " " . imap f $ es
+    where f elemIx this | elemIx == ix = highlighElemMarkup next this
+                        | otherwise    = elemMarkup this
+
+highlighElemMarkup :: Maybe Cursor -> Elem -> String
+highlighElemMarkup (Just _) (Single _) = error "cursor mismatch, indexing into Single"
+highlighElemMarkup Nothing (Triplet _ _) = error "cursor mismatch, no index for triplet"
+
+highlighElemMarkup Nothing (Single n) = addFocus n
+highlighElemMarkup (Just i) (Triplet _ es) =
+    " \\tuplet 3/2 { "
+    <>
+   elemSeqMarkup i es
+    <>
+    " } "
+
+elemMarkup :: Elem -> String
+elemMarkup (Single n) = noteMarkup n
+elemMarkup  (Triplet _ es) =
+    " \\tuplet 3/2 { "
+    <>
+    elemSeqMarkup (Cursor (-1) Nothing) es -- uh
+    <>
+    " } "
 
 -- TODO: Test Me
 noteMarkup :: Note -> String
-noteMarkup (Note h d tState m) =
-  (if tState == Start 
-    then " \\tuplet 3/2 { "
-    else mempty)
-  <>
+noteMarkup (Note h d m) =
   case h of
     RightHand -> "P"
     LeftHand -> "p"
@@ -57,20 +74,16 @@ noteMarkup (Note h d tState m) =
   durationMarkup d
   <>
   foldMap (renderMod d) m
-  <>
-  (if tState == End
-    then " } "
-    else "")
 
-renderMod :: Duration -> Elem.Mod -> String
-renderMod d Elem.Roll = "~:" <> show (noteValue d * 2 * 2)
+renderMod :: Duration -> Note.Mod -> String
+renderMod d Note.Roll = "~:" <> show (noteValue d * 2 * 2)
 
 durationMarkup :: Duration -> String
 durationMarkup d =
   show (noteValue d) <> if view dotted d then "." else ""
 
-editMarkup :: Note -> String
-editMarkup c =
+addFocus :: Note -> String
+addFocus c =
   let prop =
        case c ^. hand of
         Rest -> "Rest.color"

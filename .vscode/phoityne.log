@@ -2,3 +2,4 @@
 2022-09-17 21:21:30.514805000000 [80116(ThreadId 13)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-09-17 21:22:32.650888000000 [80208(ThreadId 13)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
 2022-09-17 21:22:55.925821000000 [80279(ThreadId 13)] ERROR APP - start debugging failed. user error (ExecResult not found.) : Left "user error (ExecResult not found.)"
+2022-10-10 08:46:57.282042000000 [69869(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)

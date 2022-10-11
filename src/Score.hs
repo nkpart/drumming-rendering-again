@@ -5,64 +5,138 @@
 
 module Score where
 
-import Measure
+import Elem
 import Control.Lens.TH
 import RIO
-import Elem
+import Note
 import EditState
-import Data.List.NonEmpty.Zipper
-import RIO.State
-    ( StateT, MonadState(put, get), gets, execStateT, modify )
-import Control.Lens ((?~), _Just)
+import RIO.State ( StateT, execStateT )
+import Control.Lens ((%=), use, (.=), ix)
+import GHC.Exts (fromList)
 
 data Score =
   Score {
     _editState :: EditState,
-    _metadata :: Metadata,
-    _notes :: ZipNotes
+    _cursor :: Cursor,
+    _notes :: ElemSeq
   }
-  deriving (Eq, Show)
-
-data Metadata = Metadata
   deriving (Eq, Show)
 
 makeLenses ''Score
 
-allNotes :: Score -> [Note]
-allNotes = maybe [] nelist . view notes
+score :: [Elem] -> Score
+-- TODO The cursor and the content doesn't line up :(
+score ns = Score initState (Cursor (-1) Nothing) (fromList ns)
 
-score :: Metadata -> [Note] -> Score
-score md ns = Score initState md (editList ns)
+execThis :: StateT s Maybe a -> s -> s
+execThis action s =
+   fromMaybe s (execStateT action s)
 
-insertNote :: Score -> Score
-insertNote s =
-  let (n, nextState) = createNote (s^.editState)
-  in
-    s & notes ?~
-        (case view notes s of
-          Just v -> insertMoveLeft n v
-          Nothing -> fromNonEmpty (pure n)
-          )
-      & editState .~ nextState
+insertNote :: StateT Score Maybe ()
+insertNote = do
+  (n, nextState) <- createNote <$> use editState
+  c <- use cursor
+  flip traceShow (pure ()) =<< use cursor
+  flip traceShow (pure ()) =<< use notes
+  notes %= insertAfterElem c (Single n)
+  flip traceShow (pure ()) =<< use notes
+  moveRight
+  flip traceShow (pure ()) =<< use cursor
+  editState .= nextState
 
-deleteNote :: Score -> Score
-deleteNote s =
-  s & notes %~ (>>= delete)
-
-toggleDotCut :: Score -> Score
-toggleDotCut s =
-  let Just (n1, n2) = getPair =<< view notes s -- TODO whoopsie
-      dots = (n1 ^. Elem.duration, n2 ^. Elem.duration)
+toggleDotCut :: StateT Score Maybe ()
+toggleDotCut = do
+  c <- use cursor
+  ns <- use notes
+  (Single n1, Single n2) <- lift (getPair c ns)
+  let dots = (n1 ^. duration, n2 ^. duration)
       (d1', d2') = toggleDots dots
-      n1' = n1 & Elem.duration .~ d1'
-      n2' = n2 & Elem.duration .~ d2'
-   in traceShow (dots, (d1',d2'))
-    s & notes . _Just %~ \v -> fromMaybe v (Just (replace n1' v)
-                      >>= right
-                      >>= (Just . replace n2')
-                      >>= left
-    )
+      n1' = n1 & Note.duration .~ d1'
+      n2' = n2 & Note.duration .~ d2'
+  -- traceShow (dots, (d1',d2'))
+  setFocus (Single n1')
+  moveRight
+  setFocus (Single n2')
+  moveLeft
 
+splitNote :: StateT Score Maybe ()
+splitNote = do
+  Single base <- getFocus
+  let new = base & duration %~ halveDuration
+  deleteFocus
+  insertMoveLeft new
+  insertMoveLeft new
+
+-- replaceNote :: Note -> StateT Score Maybe ()
+-- replaceNote n = do
+--   v <- use cursor
+--   notes . ix v %= n
+
+insertMoveLeft :: Note -> StateT Score Maybe ()
+insertMoveLeft n =
+  do 
+    c1 <- use cursor
+    notes %= insertElem c1 (Single n)
+
+makeTriplet :: StateT Score Maybe ()
+makeTriplet = do
+  Single v <- getFocus
+  let halved = Single $ v & Note.duration %~ halveDuration
+      origDuration = v ^. Note.duration
+  setFocus $ Triplet origDuration $ fromList [halved, halved, halved]
+  cursor %= appendToCursor 0
+  -- TODO need to enter the cursor here
+
+combineNotes :: StateT Score Maybe ()
+combineNotes = do
+  ns <- use notes
+  c1 <- use cursor
+  c2 <- lift $ moveCursorRight c1 ns
+
+  Single n1 <- lift $ ns ^? ix c1
+  Single n2 <- lift $ ns ^? ix c2
+  added <- lift $ addNotes n1 n2
+  notes %= deleteElem c1
+  notes . ix c1 .= Single added
+
+-- unTriplet :: Score -> Score
+
+deleteFocus :: StateT Score Maybe ()
+deleteFocus =
+  do c <- use cursor
+     notes %= deleteElem c
+
+modifyFocusNote :: (Note -> Note) -> StateT Score Maybe ()
+modifyFocusNote f =
+  do Single e <- getFocus
+     setFocus (Single $ f e)
+
+getFocus :: StateT Score Maybe Elem
+getFocus = 
+  do ns <- use notes
+     c <- use cursor
+     lift $ elemAt c ns
+
+setFocus :: Elem -> StateT Score Maybe ()
+setFocus n = do
+   v <- use cursor
+   notes . ix v .= n 
+
+moveRight :: StateT Score Maybe ()
+moveRight = 
+  do c <- use cursor
+     ns <- use notes
+     traceShow c $ pure ()
+     traceShow ns $ pure ()
+     c2 <- lift $ moveCursorRight c ns
+     cursor .= c2
+
+moveLeft :: StateT Score Maybe ()
+moveLeft = 
+  do c <- use cursor
+     ns <- use notes
+     c2 <- lift $ moveCursorLeft c ns
+     cursor .= c2
 
 -- Crying out for a property based test
 -- for all inputs, total duration should be the same across the pair
@@ -77,112 +151,3 @@ toggleDots (n1, n2) =
         (n1 & dotted .~ True, n2 & halveDuration)
       (_,_,_,_) ->
         (n1, n2)
-
-splitNote :: Score -> Score
-splitNote s =
-  let n = (s ^? notes . _Just . to current)
-  in
-    case n of
-      Just base ->
-         let new = (Elem.duration %~ halveDuration) base
-         in
-          s
-            & notes . _Just %~ replace new
-            & notes . _Just %~ insertMoveLeft new
-      Nothing ->
-        s
-
-replaceNote :: Note -> Score -> Score
-replaceNote n =
- notes . _Just %~ insertMoveLeft n
-
-insertMoveLeft :: a -> Zipper a -> Zipper a
-insertMoveLeft n z =
-  fromMaybe z $ right (unshift n z)
-
-makeTriplet :: Score -> Score
-makeTriplet s =
-    s & notes . _Just %~ execThis (do
-      v <- getFocus
-      let halved = v & Elem.duration %~ halveDuration
-      setFocus (halved & tripletState .~ Start)
-
-      modify (unshift $ halved & tripletState .~ Covered)
-      opOrContinue right
-
-      modify (unshift $ halved & tripletState .~ End)
-      opOrContinue right
-    )
-
-execThis :: StateT s Maybe a -> s -> s
-execThis action s =
-  fromMaybe s (execStateT action s)
-
-combineNotes :: Score -> Score
-combineNotes =
-  notes . _Just %~ execThis (do
-      v1 <- getFocus
-      opOrCancel right
-      v2 <- getFocus
-      opOrCancel left
-      case addNotes v1 v2 of
-        Nothing -> lift Nothing
-        Just v -> do
-          modify (\s -> fromMaybe s $ delete s)
-          modify (\s -> fromMaybe s $ delete s)
-          modify (unshift v)
-
-      pure ()
-    )
-
-
--- unTriplet :: Score -> Score
--- unTriplet =
---     notes %~ execState (do
---       v <- fromJust <$> getFocus
---       case v ^. tripletState of
---         None -> pure ()
---         _ -> 
---     )
-
-      -- insertMoveRight _ _
-      -- insertMoveRight $ Just $ halved & tripletEnd .~ True
-      -- pure ()
-    -- )
-
-  -- let (n, nextState) = createNote (s^.editState)
-  -- in
-  --    s & notes %~ insertMoveLeft (Just n)
-  --      & editState .~ nextState
-
-
-getFocus :: StateT (Zipper Note) Maybe Note
-getFocus = gets current
-
-setFocus :: Note -> StateT (Zipper Note) Maybe ()
-setFocus = modify . replace
-
-focus :: Lens' (Zipper a) a
-focus = lens current (flip replace)
-
-moveRight :: StateT (Zipper a) Maybe ()
-moveRight =
-  opOrContinue right
-
-moveLeft :: StateT (Zipper a) Maybe ()
-moveLeft =
-  opOrContinue left
-
-opOrCancel :: (s -> Maybe s) -> StateT s Maybe ()
-opOrCancel f = do
-     x <- get
-     case f x of
-       Just v -> put v
-       Nothing -> lift Nothing
-
-opOrContinue :: (s -> Maybe s) -> StateT s Maybe ()
-opOrContinue f = do
-     x <- get
-     case f x of
-       Just v -> put v
-       Nothing -> pure ()

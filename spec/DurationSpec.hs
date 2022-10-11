@@ -2,7 +2,6 @@ module DurationSpec where
 
 
 import Duration
-import Elem
 import Hedgehog
 import Hedgehog.Gen as Gen
 import Control.Lens

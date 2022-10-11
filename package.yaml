@@ -1,7 +1,6 @@
 dependencies:
   - base == 4.*
   - mtl
-  - list-zipper
   - lens
   - heterocephalus
   - blaze-markup
@@ -12,7 +11,6 @@ dependencies:
   - haskell-gi-base
   - gi-gtk
   - gi-gdk
-  - nonempty-zipper
 
 executables:
   score:
