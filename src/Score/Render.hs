@@ -44,9 +44,7 @@ elemSeqMarkup (Cursor ix next) (ElemSeq es) =
 
 highlighElemMarkup :: Maybe Cursor -> Elem -> String
 highlighElemMarkup (Just _) (Single _) = error "cursor mismatch, indexing into Single"
-highlighElemMarkup Nothing (Triplet _ _) = error "cursor mismatch, no index for triplet"
-
-highlighElemMarkup Nothing (Single n) = addFocus n
+highlighElemMarkup Nothing e = addFocus (elemMarkup e)
 highlighElemMarkup (Just i) (Triplet _ es) =
     " \\tuplet 3/2 { "
     <>
@@ -82,17 +80,14 @@ durationMarkup :: Duration -> String
 durationMarkup d =
   show (noteValue d) <> if view dotted d then "." else ""
 
-addFocus :: Note -> String
+addFocus :: String -> String
 addFocus c =
-  let prop =
-       case c ^. hand of
-        Rest -> "Rest.color"
-        _ -> "NoteHead.color"
-  in
    "\n" <>
-   "\\override " <> prop <> " = \"red\"" <>
+   "\\override " <> "Rest.color" <> " = \"red\"\n" <>
+   "\\override " <> "NoteHead.color" <> " = \"red\"\n" <>
   "\n" <>
-   " " <> noteMarkup c <> " " <>
+   " " <> c <> " " <>
   "\n" <>
-   "\\revert " <> prop <>
+   "\\revert " <> "NoteHead.color" <> "\n" <>
+   "\\revert " <> "Rest.color" <> "\n" <>
   "\n"

@@ -92,31 +92,37 @@ moveCursorRight :: Cursor -> ElemSeq -> Maybe Cursor
 moveCursorRight (Cursor i Nothing) (ElemSeq notes) =
   case RIO.Seq.lookup (i+1) notes of
     Nothing -> Nothing
-    Just (Single _) -> Just (Cursor (i+1) Nothing)
-    Just (Triplet _ ns) -> Just (Cursor (i+1) (Just $ enter ns))
-moveCursorRight (Cursor i (Just iNext)) (ElemSeq notes) =
-  case RIO.Seq.lookup i notes of
-    Nothing -> Nothing -- but this is a big whoopsy, we have a cursor pointing at nothing
-    Just (Single _) -> Nothing -- this is also a big whoopsy, we have a triplet cursor pointing at a single
-    Just (Triplet _ ns) -> 
-      case moveCursorRight iNext ns of
-        Nothing -> moveCursorRight (Cursor i Nothing) (ElemSeq notes)
-        Just v -> Just (Cursor i (Just v))
+    Just _ -> Just (Cursor (i+1) Nothing)
+moveCursorRight (Cursor i (Just iNext)) (ElemSeq notes) = do
+  Triplet _ ns <- RIO.Seq.lookup i notes
+  case moveCursorRight iNext ns of
+    -- Couldn't move in the triplet, try moving up a level
+    Nothing -> moveCursorRight (Cursor i Nothing) (ElemSeq notes)
+    Just v -> Just (Cursor i (Just v))
 
 moveCursorLeft :: Cursor -> ElemSeq -> Maybe Cursor
 moveCursorLeft (Cursor i Nothing) (ElemSeq notes) =
   case RIO.Seq.lookup (i-1) notes of
     Nothing -> Nothing
-    Just (Single _) -> Just (Cursor (i-1) Nothing)
-    Just (Triplet _ ns) -> Just (Cursor (i-1) (Just $ enter ns))
-moveCursorLeft (Cursor i (Just iNext)) (ElemSeq notes) =
-  case RIO.Seq.lookup i notes of
-    Nothing -> Nothing -- but this is a big whoopsy, we have a cursor pointing at nothing
-    Just (Single _) -> Nothing -- this is also a big whoopsy, we have a triplet cursor pointing at a single
-    Just (Triplet _ ns) -> 
-      case moveCursorLeft iNext ns of
-        Nothing -> moveCursorLeft (Cursor i Nothing) (ElemSeq notes)
-        Just v -> Just (Cursor i (Just v))
+    Just _ -> Just (Cursor (i-1) Nothing)
+moveCursorLeft (Cursor i (Just iNext)) (ElemSeq notes) = do
+  Triplet _ ns <- RIO.Seq.lookup i notes
+  case moveCursorLeft iNext ns of
+    -- Couldn't move in the triplet, try moving up a level
+    Nothing -> moveCursorLeft (Cursor i Nothing) (ElemSeq notes)
+    Just v -> Just (Cursor i (Just v))
+
+moveCursorDown :: Cursor -> ElemSeq -> Maybe Cursor
+moveCursorDown (Cursor i Nothing) (ElemSeq notes) = do
+  Triplet _ _ <- RIO.Seq.lookup i notes
+  pure $ Cursor i (Just (Cursor 0 Nothing))
+moveCursorDown (Cursor i (Just v)) (ElemSeq notes) = do
+  Triplet _ ns <- RIO.Seq.lookup i notes
+  Cursor i . Just <$> moveCursorDown v ns
+
+moveCursorUp :: Cursor -> Maybe Cursor
+moveCursorUp (Cursor _ Nothing) = Nothing
+moveCursorUp (Cursor i (Just v)) = Just (Cursor i (moveCursorUp v))
 
 enter :: ElemSeq -> Cursor
 enter (ElemSeq es) = 

@@ -70,8 +70,9 @@ gui = runSimpleApp $ do
           Gtk.labelSetText debugShowLabel $ fromMaybe "nothing" keyName
          let action a = modifyIORef ref (execThis a)
          case keyName of
-          Just "Up" -> action (modifyFocusNote $ hand %~ swapHand)
-          Just "Down" -> action (modifyFocusNote $ hand %~ swapHand)
+          -- Just "Down" -> action (modifyFocusNote $ hand %~ swapHand)
+          Just "Up" -> action moveUp
+          Just "Down" -> action moveDown
           Just "Left" -> action moveLeft
           Just "Right" -> action moveRight
           Just "3" -> action makeTriplet

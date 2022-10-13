@@ -138,6 +138,19 @@ moveLeft =
      c2 <- lift $ moveCursorLeft c ns
      cursor .= c2
 
+moveDown :: StateT Score Maybe ()
+moveDown = 
+  do c <- use cursor
+     ns <- use notes
+     c2 <- lift $ moveCursorDown c ns
+     cursor .= c2
+
+moveUp :: StateT Score Maybe ()
+moveUp = 
+  do c <- use cursor
+     c2 <- lift $ moveCursorUp c
+     cursor .= c2
+
 -- Crying out for a property based test
 -- for all inputs, total duration should be the same across the pair
 toggleDots :: (Duration, Duration) -> (Duration, Duration)
