@@ -1,4 +1,4 @@
-{-# language TemplateHaskell #-}
+{-# language TemplateHaskell, OverloadedLists #-}
 {-# LANGUAGE DeriveFunctor #-}
 
 {-# options_ghc -Wno-deprecations #-}
@@ -10,8 +10,8 @@ import Control.Lens.TH
 import RIO
 import Note
 import EditState
-import RIO.State ( StateT, execStateT )
-import Control.Lens ((%=), use, (.=), ix)
+import RIO.State ( StateT, execStateT, MonadState (state) )
+import Control.Lens ((%=), use, (.=), ix, zoom)
 import GHC.Exts (fromList)
 
 data Score =
@@ -34,25 +34,17 @@ execThis action s =
 
 insertNote :: StateT Score Maybe ()
 insertNote = do
-  (n, nextState) <- createNote <$> use editState
+  n <- zoom editState (state createNote)
   c <- use cursor
-  flip traceShow (pure ()) =<< use cursor
-  flip traceShow (pure ()) =<< use notes
-  notes %= insertAfterElem c (Single n)
-  flip traceShow (pure ()) =<< use notes
+  notes %= insertAfterElem (Single n) c
   moveRight
-  flip traceShow (pure ()) =<< use cursor
-  editState .= nextState
 
 toggleDotCut :: StateT Score Maybe ()
 toggleDotCut = do
   c <- use cursor
   ns <- use notes
   (Single n1, Single n2) <- lift (getPair c ns)
-  let dots = (n1 ^. duration, n2 ^. duration)
-      (d1', d2') = toggleDots dots
-      n1' = n1 & Note.duration .~ d1'
-      n2' = n2 & Note.duration .~ d2'
+  let (n1', n2') = toggleDots (n1, n2)
   -- traceShow (dots, (d1',d2'))
   setFocus (Single n1')
   moveRight
@@ -76,16 +68,15 @@ insertMoveLeft :: Note -> StateT Score Maybe ()
 insertMoveLeft n =
   do 
     c1 <- use cursor
-    notes %= insertElem c1 (Single n)
+    notes %= insertElem (Single n) c1
 
 makeTriplet :: StateT Score Maybe ()
 makeTriplet = do
   Single v <- getFocus
   let halved = Single $ v & Note.duration %~ halveDuration
       origDuration = v ^. Note.duration
-  setFocus $ Triplet origDuration $ fromList [halved, halved, halved]
-  cursor %= appendToCursor 0
-  -- TODO need to enter the cursor here
+  setFocus $ Triplet origDuration [halved, halved, halved]
+  moveDown
 
 combineNotes :: StateT Score Maybe ()
 combineNotes = do
@@ -93,9 +84,9 @@ combineNotes = do
   c1 <- use cursor
   c2 <- lift $ moveCursorRight c1 ns
 
-  Single n1 <- lift $ ns ^? ix c1
-  Single n2 <- lift $ ns ^? ix c2
-  added <- lift $ addNotes n1 n2
+  Single n1 <- lift (ns ^? ix c1)
+  Single n2 <- lift (ns ^? ix c2)
+  added <- lift (addNotes n1 n2)
   notes %= deleteElem c1
   notes . ix c1 .= Single added
 
@@ -115,7 +106,7 @@ getFocus :: StateT Score Maybe Elem
 getFocus = 
   do ns <- use notes
      c <- use cursor
-     lift $ elemAt c ns
+     lift $ ns RIO.^? ix c
 
 setFocus :: Elem -> StateT Score Maybe ()
 setFocus n = do
@@ -123,44 +114,34 @@ setFocus n = do
    notes . ix v .= n 
 
 moveRight :: StateT Score Maybe ()
-moveRight = 
-  do c <- use cursor
-     ns <- use notes
-     traceShow c $ pure ()
-     traceShow ns $ pure ()
-     c2 <- lift $ moveCursorRight c ns
-     cursor .= c2
+moveRight = tryMove moveCursorRight
 
 moveLeft :: StateT Score Maybe ()
-moveLeft = 
-  do c <- use cursor
-     ns <- use notes
-     c2 <- lift $ moveCursorLeft c ns
-     cursor .= c2
+moveLeft = tryMove moveCursorLeft
 
 moveDown :: StateT Score Maybe ()
-moveDown = 
-  do c <- use cursor
-     ns <- use notes
-     c2 <- lift $ moveCursorDown c ns
-     cursor .= c2
+moveDown = tryMove moveCursorDown
 
 moveUp :: StateT Score Maybe ()
-moveUp = 
+moveUp = tryMove (\c _ -> moveCursorUp c)
+
+tryMove :: (Cursor -> ElemSeq -> Maybe Cursor) -> StateT Score Maybe () 
+tryMove f = 
   do c <- use cursor
-     c2 <- lift $ moveCursorUp c
+     ns <- use notes
+     c2 <- lift $ f c ns
      cursor .= c2
 
 -- Crying out for a property based test
 -- for all inputs, total duration should be the same across the pair
-toggleDots :: (Duration, Duration) -> (Duration, Duration)
+toggleDots :: (Note, Note) -> (Note, Note)
 toggleDots (n1, n2) =
-    case (view dotted n1, view dotted n2, noteValue n1 == noteValue n2, noteValue n2 == noteValue (halveDuration n1)) of
+    case (view noteDotted n1, view noteDotted n2, noteValue n1 == noteValue n2, noteValue n2 == noteValue (n1 & duration %~ halveDuration)) of
       (True, False, False, True) ->
         -- proper dotting
-        (n1 & dotted .~ False, n2 & doubleDuration)
+        (n1 & noteDotted .~ False, n2 & duration %~ doubleDuration)
       (False, False, True, _) ->
         -- proper no dotting
-        (n1 & dotted .~ True, n2 & halveDuration)
+        (n1 & noteDotted .~ True, n2 & duration %~ halveDuration)
       (_,_,_,_) ->
         (n1, n2)

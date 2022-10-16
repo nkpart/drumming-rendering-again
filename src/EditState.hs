@@ -10,7 +10,8 @@ data EditState =
     EditState {
         -- TODO: should this just be a note?
         _hand :: Hand,
-        _editStateDuration :: Duration
+        _editStateDuration :: Duration,
+        _editStateDotted :: Bool
     } deriving (Eq, Show)
 
 makeLenses ''EditState
@@ -18,11 +19,11 @@ makeLenses ''EditState
 instance HasDuration EditState where duration = editStateDuration
 
 initState :: EditState
-initState = EditState RightHand d4
+initState = EditState RightHand d4 False
 
 createNote :: EditState -> (Note, EditState)
 createNote es =
-    let thisNote = Note (es^.EditState.hand) (es^.duration) mempty
+    let thisNote = Note (es^.EditState.hand) (es^.duration) (es^.editStateDotted) mempty
         nextState = 
           es 
             & EditState.hand %~ swapHand

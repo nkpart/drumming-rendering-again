@@ -3,7 +3,6 @@ module Score.Render where
 
 import Score
 import Elem
-import Duration
 import Note
 import RIO hiding (rights, lefts)
 import RIO.Seq (intersperse)
@@ -63,22 +62,28 @@ elemMarkup  (Triplet _ es) =
 
 -- TODO: Test Me
 noteMarkup :: Note -> String
-noteMarkup (Note h d m) =
+noteMarkup n@(Note h _ dt m) =
   case h of
     RightHand -> "P"
     LeftHand -> "p"
     Rest -> "r"
   <>
-  durationMarkup d
+  durationMarkup n
   <>
-  foldMap (renderMod d) m
+  noteDot dt
+  <>
+  foldMap (renderMod n) m
 
-renderMod :: Duration -> Note.Mod -> String
+noteDot :: Bool -> String
+noteDot True = "."
+noteDot False = ""
+
+renderMod :: Note -> Note.Mod -> String
 renderMod d Note.Roll = "~:" <> show (noteValue d * 2 * 2)
 
-durationMarkup :: Duration -> String
+durationMarkup :: Note -> String
 durationMarkup d =
-  show (noteValue d) <> if view dotted d then "." else ""
+  show (noteValue d) <> if view noteDotted d then "." else ""
 
 addFocus :: String -> String
 addFocus c =

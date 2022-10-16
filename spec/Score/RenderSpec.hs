@@ -34,7 +34,7 @@ hprop_renderScore_with_notes = withTests 1 . property $
 hprop_renderNotes_for_edit_shows_focus :: Property
 hprop_renderNotes_for_edit_shows_focus =
   withTests 1 . property $ do
-    noteMarkup (Note RightHand d4 mempty) === "P4"
+    noteMarkup (Note RightHand d4 False mempty) === "P4"
     -- TODO
     -- editMarkup (Note RightHand d4 mempty) === "\n\\override NoteHead.color = \"red\"\n P4 \n\\revert NoteHead.color\n"
 
@@ -45,7 +45,7 @@ readGolden name = liftIO $
   readFile (".golden" </> name </> "golden")
 
 left :: Elem
-left = Single $ Note LeftHand d4 mempty
+left = Single $ Note LeftHand d4 False mempty
 
 right :: Elem
-right = Single $ Note RightHand d4 mempty
+right = Single $ Note RightHand d4 False mempty

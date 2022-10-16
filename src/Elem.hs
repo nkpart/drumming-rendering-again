@@ -14,7 +14,6 @@ import Prelude hiding (reverse)
 import RIO
 import RIO.Seq
 import GHC.Exts (IsList (Item, toList, fromList))
-import qualified RIO.Seq as Seq
 
 data Elem =
     Single Note
@@ -55,96 +54,77 @@ instance Ixed ElemSeq where
   ix (Cursor i (Just n)) =
     _Wrapped . ix i . _Triplet . _2 . ix n
 
--- TODO: monadstate layer
+focus :: Int -> Cursor
+focus i = Cursor i Nothing
 
-appendToCursor :: Int -> Cursor -> Cursor
-appendToCursor n (Cursor p Nothing) = Cursor p (Just $ Cursor n Nothing)
-appendToCursor n (Cursor p (Just v)) =
-  Cursor p (Just $ appendToCursor n v)
+intermediate :: Int -> Cursor -> Cursor
+intermediate i = Cursor i . Just
 
-elemAt :: Cursor -> ElemSeq -> Maybe Elem
-elemAt c notes =
-  notes RIO.^? ix c
-
-insertElem :: Cursor -> Elem -> ElemSeq -> ElemSeq
-insertElem (Cursor i nextI) n (ElemSeq notes) = ElemSeq $
+-- insertElem :: Cursor -> ElemSeq -> _ -> ElemSeq
+modifying :: (Int -> Seq Elem -> Seq Elem) -> Cursor -> ElemSeq -> ElemSeq
+modifying f (Cursor i nextI) (ElemSeq notes) = ElemSeq $
   case nextI of
-    Nothing -> insertAt i n notes
-    Just trips -> notes & ix i . _Triplet . _2 RIO.%~ insertElem trips n
+    Nothing -> f i notes
+    Just trips -> notes & ix i . _Triplet . _2 RIO.%~ modifying f trips
 
-insertAfterElem :: Cursor -> Elem -> ElemSeq -> ElemSeq
-insertAfterElem (Cursor i Nothing) n (ElemSeq notes) = ElemSeq $
-  insertAt (i+1) n notes
-insertAfterElem (Cursor i (Just trips)) n (ElemSeq notes) = ElemSeq (
-  notes & ix i . _Triplet . _2 RIO.%~ insertAfterElem trips n)
+insertElem :: Elem -> Cursor -> ElemSeq -> ElemSeq
+insertElem n =
+  modifying (\i -> insertAt i n)
+
+insertAfterElem :: Elem -> Cursor -> ElemSeq -> ElemSeq
+insertAfterElem n =
+  modifying (\i -> insertAt (i+1) n)
 
 deleteElem :: Cursor -> ElemSeq -> ElemSeq
-deleteElem (Cursor i Nothing) (ElemSeq notes) = ElemSeq $
-  deleteAt i notes
-deleteElem (Cursor i (Just trips)) (ElemSeq notes) = ElemSeq (
+deleteElem = modifying deleteAt
     -- TODO: What happens if we delete the last note in a triplet
     -- we could stick a (validate f) function in here that
     -- checks if the resulting elem is valide
-    notes & ix i . _Triplet . _2 RIO.%~ deleteElem trips
-  )
+
+thingo :: (Int -> Seq Elem -> Maybe a) -> Cursor -> ElemSeq -> Maybe a
+thingo f (Cursor i Nothing) (ElemSeq notes) =
+  f i notes
+thingo f (Cursor i (Just iNext)) (ElemSeq notes) = do
+  Triplet _ ns <- RIO.Seq.lookup i notes
+  thingo f iNext ns
+    <|> thingo f (Cursor i Nothing) (ElemSeq notes)
 
 moveCursorRight :: Cursor -> ElemSeq -> Maybe Cursor
 moveCursorRight (Cursor i Nothing) (ElemSeq notes) =
-  case RIO.Seq.lookup (i+1) notes of
-    Nothing -> Nothing
-    Just _ -> Just (Cursor (i+1) Nothing)
+  focus (i+1) <$ RIO.Seq.lookup (i+1) notes
 moveCursorRight (Cursor i (Just iNext)) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
-  case moveCursorRight iNext ns of
-    -- Couldn't move in the triplet, try moving up a level
-    Nothing -> moveCursorRight (Cursor i Nothing) (ElemSeq notes)
-    Just v -> Just (Cursor i (Just v))
+  (intermediate i <$> moveCursorRight iNext ns)
+    <|> moveCursorRight (focus i) (ElemSeq notes)
 
 moveCursorLeft :: Cursor -> ElemSeq -> Maybe Cursor
 moveCursorLeft (Cursor i Nothing) (ElemSeq notes) =
-  case RIO.Seq.lookup (i-1) notes of
-    Nothing -> Nothing
-    Just _ -> Just (Cursor (i-1) Nothing)
+  focus (i-1) <$ RIO.Seq.lookup (i-1) notes
 moveCursorLeft (Cursor i (Just iNext)) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
-  case moveCursorLeft iNext ns of
-    -- Couldn't move in the triplet, try moving up a level
-    Nothing -> moveCursorLeft (Cursor i Nothing) (ElemSeq notes)
-    Just v -> Just (Cursor i (Just v))
+  (intermediate i <$> moveCursorLeft iNext ns)
+    <|> moveCursorLeft (focus i) (ElemSeq notes)
 
 moveCursorDown :: Cursor -> ElemSeq -> Maybe Cursor
-moveCursorDown (Cursor i Nothing) (ElemSeq notes) = do
-  Triplet _ _ <- RIO.Seq.lookup i notes
-  pure $ Cursor i (Just (Cursor 0 Nothing))
-moveCursorDown (Cursor i (Just v)) (ElemSeq notes) = do
+moveCursorDown (Cursor i nextI) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
-  Cursor i . Just <$> moveCursorDown v ns
+  case nextI of
+    Nothing -> pure (intermediate i (focus 0))
+    Just v -> intermediate i <$> moveCursorDown v ns
 
 moveCursorUp :: Cursor -> Maybe Cursor
 moveCursorUp (Cursor _ Nothing) = Nothing
 moveCursorUp (Cursor i (Just v)) = Just (Cursor i (moveCursorUp v))
 
-enter :: ElemSeq -> Cursor
-enter (ElemSeq es) = 
-  Cursor 0 $
-  case Seq.lookup 0 es of
-    Just (Single _) -> Nothing
-    Just (Triplet _ ns) -> Just $ enter ns
-    Nothing -> error "trying to cursor an empty list"
-
--- TODO, what should append look like?
--- Append after everything?
--- appendNote :: Cursor -> Note -> ElemSeq -> ElemSeq
-
 copy :: Cursor -> ElemSeq -> Maybe ElemSeq
 copy c notes = do
-  v <- elemAt c notes
-  pure $ insertElem c v notes
+  v <- notes RIO.^? ix c
+  pure $ insertElem v c notes
 
 -- not sure what this should return, elems or notes
 getPair :: Cursor -> ElemSeq -> Maybe (Elem,Elem)
 getPair c1 notes = do
-  x <- elemAt c1 notes
+  x <- notes RIO.^? ix c1
   c2 <- moveCursorRight c1 notes
-  y <- elemAt c2 notes
+  y <- notes RIO.^? ix c2
   pure (x,y)

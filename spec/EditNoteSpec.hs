@@ -7,11 +7,11 @@ import Note
 
 hprop_createNote_init :: Property
 hprop_createNote_init = withTests 1 . property $
-  fst (ES.createNote ES.initState) === Note RightHand d4 mempty
+  fst (ES.createNote ES.initState) === Note RightHand d4 False mempty
 
 hprop_createNote_withDuration :: Property
 hprop_createNote_withDuration = withTests 1 . property $
-  fst (ES.createNote (ES.initState & duration .~ d8)) === Note RightHand d8 mempty
+  fst (ES.createNote (ES.initState & duration .~ d8)) === Note RightHand d8 False mempty
 
 hprop_createNote_switches_hands :: Property
 hprop_createNote_switches_hands = withTests 1 . property $ do

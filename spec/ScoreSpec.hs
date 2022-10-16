@@ -27,7 +27,7 @@ hprop_Score_appends = withTests 1 . property $
         -- (modified ^.. notes . _Just . focus) === [left] -- TODO
 
 left :: Note
-left = Note LeftHand d4 mempty
+left = Note LeftHand d4 False mempty
 
 right :: Note
-right = Note RightHand d4 mempty
+right = Note RightHand d4 False mempty

@@ -1,10 +1,11 @@
-{-# language OverloadedLists, TypeApplications #-}
+{-# language OverloadedLists #-}
 module ElemSpec where
 
 import Elem
 import Hedgehog
 import qualified Note
 import RIO
+import Control.Lens (ix)
 
 -- genHand :: Gen Hand
 -- genHand = Gen.enumBounded
@@ -24,9 +25,8 @@ noted d = Single $ Note.note & Note.duration .~ d
 note16 :: Elem
 note16 = noted Note.d16
 
-hprop_appendToCursor :: Property
-hprop_appendToCursor = withTests 1 . property $ do
-      appendToCursor 1 [0] === [0,1]
+elemAt :: Cursor -> ElemSeq -> Maybe Elem
+elemAt c n = n RIO.^? ix c
 
 hprop_elemAt :: Property
 hprop_elemAt = withTests 1 . property $ do
@@ -36,11 +36,11 @@ hprop_elemAt = withTests 1 . property $ do
 
 hprop_insertElem :: Property
 hprop_insertElem = withTests 1 . property $ do
-         insertElem [0] note16 [note, trip [note], note] === [note16, note, trip [note], note]
-         insertElem [2] note16 [note, trip [note], note] === [note, trip [note], note16, note]
-         insertElem [1,0] note16 [note, trip [note], note] === [note, trip [note16, note], note]
+         insertElem note16 [0] [note, trip [note], note] === [note16, note, trip [note], note]
+         insertElem note16 [2] [note, trip [note], note] === [note, trip [note], note16, note]
+         insertElem note16 [1,0] [note, trip [note], note] === [note, trip [note16, note], note]
 
-         insertElem [1] note16 [note] === [note, note16]
+         insertElem note16 [1] [note] === [note, note16]
 
 hprop_deleteElem :: Property
 hprop_deleteElem = withTests 1 . property $ do

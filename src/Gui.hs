@@ -17,6 +17,7 @@ import RIO.Text (pack)
 import Note
 import GI.Gdk (keyvalName)
 import RIO.Time
+import EditState (editStateDotted)
 
 -- TODO: Undo stack
 
@@ -89,7 +90,7 @@ gui = runSimpleApp $ do
            -- SHIFT changes the edit state
            '_' -> modifyIORef ref (editState . duration %~ halveDuration)
            '+' -> modifyIORef ref (editState . duration %~ doubleDuration)
-           '>' -> modifyIORef ref (editState . duration %~ toggleDotted)
+           '>' -> modifyIORef ref (editState . editStateDotted %~ not)
 
            -- Movement
            'h' -> modifyIORef ref (execThis moveLeft)
@@ -98,7 +99,7 @@ gui = runSimpleApp $ do
            -- Change the current note
            '-' -> action (modifyFocusNote $ duration %~ halveDuration)
            '=' -> action (modifyFocusNote $ duration %~ doubleDuration)
-          --  '.' -> modifyIORef ref (notes . focus . _Just . Elem.duration %~ Elem.toggleDotted)
+          --  '.' -> action (modifyFocusNote toggleDotted)
 
            _ -> print ()
          updateUI
