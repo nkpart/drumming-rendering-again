@@ -4,20 +4,31 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Elem where
+module Elem
+  (
+    Elem(..), _Single, _Triplet,
+    ElemSeq(..),
+    Cursor(..),
+    insertElem, insertAfterElem,
+    deleteElem,
+    moveCursorDown, moveCursorUp, moveCursorLeft, moveCursorRight,
+    takeAtLevel
+  )
+  where
 
 import Note
 import Control.Lens.TH
-import Control.Lens.At
+import Control.Lens.At ( IxValue, Index, Ixed(..) )
 import Control.Lens (_2, _Wrapped)
 import Prelude hiding (reverse)
 import RIO
 import RIO.Seq
 import GHC.Exts (IsList (Item, toList, fromList))
+import qualified RIO.Seq as Seq
 
 data Elem =
     Single Note
-  | Triplet { _tripletDuration :: Duration,  _tripletNotes :: ElemSeq }
+  | Triplet Duration ElemSeq
   deriving (Eq)
 
 instance Show Elem where
@@ -30,7 +41,7 @@ newtype ElemSeq = ElemSeq (Seq Elem)
 instance Show ElemSeq where
   show (ElemSeq e) = show (RIO.toList e)
 
-data Cursor = Cursor {_position :: Int,  _tripletCursor :: Maybe Cursor }
+data Cursor = Cursor Int (Maybe Cursor)
   deriving (Eq, Show)
 
 instance IsList Cursor where
@@ -67,9 +78,15 @@ modifying f (Cursor i nextI) (ElemSeq notes) = ElemSeq $
     Nothing -> f i notes
     Just trips -> notes & ix i . _Triplet . _2 RIO.%~ modifying f trips
 
+withNeighbours :: (Int -> Seq Elem -> a) -> Cursor -> ElemSeq -> Maybe a
+withNeighbours f (Cursor i nextI) (ElemSeq notes) =
+  case nextI of
+    Nothing -> Just $ f i notes
+    Just trips -> notes ^? ix i . _Triplet . _2 >>= withNeighbours f trips
+
 insertElem :: Elem -> Cursor -> ElemSeq -> ElemSeq
 insertElem n =
-  modifying (\i -> insertAt i n)
+  modifying (`insertAt` n)
 
 insertAfterElem :: Elem -> Cursor -> ElemSeq -> ElemSeq
 insertAfterElem n =
@@ -81,17 +98,13 @@ deleteElem = modifying deleteAt
     -- we could stick a (validate f) function in here that
     -- checks if the resulting elem is valide
 
-thingo :: (Int -> Seq Elem -> Maybe a) -> Cursor -> ElemSeq -> Maybe a
-thingo f (Cursor i Nothing) (ElemSeq notes) =
-  f i notes
-thingo f (Cursor i (Just iNext)) (ElemSeq notes) = do
-  Triplet _ ns <- RIO.Seq.lookup i notes
-  thingo f iNext ns
-    <|> thingo f (Cursor i Nothing) (ElemSeq notes)
+takeAtLevel :: Int -> Cursor -> ElemSeq -> Maybe (Seq Elem)
+takeAtLevel n =
+  withNeighbours (\i-> Seq.take n . Seq.drop i)
 
 moveCursorRight :: Cursor -> ElemSeq -> Maybe Cursor
-moveCursorRight (Cursor i Nothing) (ElemSeq notes) =
-  focus (i+1) <$ RIO.Seq.lookup (i+1) notes
+moveCursorRight (Cursor i Nothing) (ElemSeq notes) = do
+  focus (i+1) <$ guard (i+1 < Seq.length notes)
 moveCursorRight (Cursor i (Just iNext)) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
   (intermediate i <$> moveCursorRight iNext ns)
@@ -99,7 +112,7 @@ moveCursorRight (Cursor i (Just iNext)) (ElemSeq notes) = do
 
 moveCursorLeft :: Cursor -> ElemSeq -> Maybe Cursor
 moveCursorLeft (Cursor i Nothing) (ElemSeq notes) =
-  focus (i-1) <$ RIO.Seq.lookup (i-1) notes
+  focus (i-1) <$ guard (i-1 < Seq.length notes)
 moveCursorLeft (Cursor i (Just iNext)) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
   (intermediate i <$> moveCursorLeft iNext ns)
@@ -115,16 +128,3 @@ moveCursorDown (Cursor i nextI) (ElemSeq notes) = do
 moveCursorUp :: Cursor -> Maybe Cursor
 moveCursorUp (Cursor _ Nothing) = Nothing
 moveCursorUp (Cursor i (Just v)) = Just (Cursor i (moveCursorUp v))
-
-copy :: Cursor -> ElemSeq -> Maybe ElemSeq
-copy c notes = do
-  v <- notes RIO.^? ix c
-  pure $ insertElem v c notes
-
--- not sure what this should return, elems or notes
-getPair :: Cursor -> ElemSeq -> Maybe (Elem,Elem)
-getPair c1 notes = do
-  x <- notes RIO.^? ix c1
-  c2 <- moveCursorRight c1 notes
-  y <- notes RIO.^? ix c2
-  pure (x,y)

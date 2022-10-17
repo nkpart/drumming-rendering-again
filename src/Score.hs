@@ -13,6 +13,7 @@ import EditState
 import RIO.State ( StateT, execStateT, MonadState (state) )
 import Control.Lens ((%=), use, (.=), ix, zoom)
 import GHC.Exts (fromList)
+import RIO.Seq (Seq(..))
 
 data Score =
   Score {
@@ -42,10 +43,9 @@ insertNote = do
 toggleDotCut :: StateT Score Maybe ()
 toggleDotCut = do
   c <- use cursor
-  ns <- use notes
-  (Single n1, Single n2) <- lift (getPair c ns)
-  let (n1', n2') = toggleDots (n1, n2)
-  -- traceShow (dots, (d1',d2'))
+  n <- use notes
+  (Single n1 :<| Single n2 :<| Empty) <- lift $ takeAtLevel 2 c n
+  (n1', n2') <- lift $ toggleDots (n1, n2)
   setFocus (Single n1')
   moveRight
   setFocus (Single n2')
@@ -58,11 +58,6 @@ splitNote = do
   deleteFocus
   insertMoveLeft new
   insertMoveLeft new
-
--- replaceNote :: Note -> StateT Score Maybe ()
--- replaceNote n = do
---   v <- use cursor
---   notes . ix v %= n
 
 insertMoveLeft :: Note -> StateT Score Maybe ()
 insertMoveLeft n =
@@ -134,14 +129,14 @@ tryMove f =
 
 -- Crying out for a property based test
 -- for all inputs, total duration should be the same across the pair
-toggleDots :: (Note, Note) -> (Note, Note)
+toggleDots :: (Note, Note) -> Maybe (Note, Note)
 toggleDots (n1, n2) =
     case (view noteDotted n1, view noteDotted n2, noteValue n1 == noteValue n2, noteValue n2 == noteValue (n1 & duration %~ halveDuration)) of
       (True, False, False, True) ->
         -- proper dotting
-        (n1 & noteDotted .~ False, n2 & duration %~ doubleDuration)
+        Just (n1 & noteDotted .~ False, n2 & duration %~ doubleDuration)
       (False, False, True, _) ->
         -- proper no dotting
-        (n1 & noteDotted .~ True, n2 & duration %~ halveDuration)
+        Just (n1 & noteDotted .~ True, n2 & duration %~ halveDuration)
       (_,_,_,_) ->
-        (n1, n2)
+        Nothing

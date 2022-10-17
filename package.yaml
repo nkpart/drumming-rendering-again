@@ -2,9 +2,7 @@ dependencies:
   - base == 4.*
   - mtl
   - lens
-  - heterocephalus
   - blaze-markup
-  - repline
   - process
   - rio
   - rio-orphans
