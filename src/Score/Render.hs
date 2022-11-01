@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, OverloadedLists #-}
 module Score.Render where
 
 import Score
@@ -36,18 +36,18 @@ data RenderTarget =
 -- TODO: line breaks after measures?
 
 elemSeqMarkup :: Cursor -> ElemSeq -> String
-elemSeqMarkup (Cursor ix next) (ElemSeq es) =
+elemSeqMarkup (Cursor (ix :| next)) (ElemSeq es) =
       fold . intersperse " " . imap f $ es
     where f elemIx this | elemIx == ix = highlighElemMarkup next this
                         | otherwise    = elemMarkup this
 
-highlighElemMarkup :: Maybe Cursor -> Elem -> String
-highlighElemMarkup (Just _) (Single _) = error "cursor mismatch, indexing into Single"
-highlighElemMarkup Nothing e = addFocus (elemMarkup e)
-highlighElemMarkup (Just i) (Triplet _ es) =
+highlighElemMarkup :: [Int] -> Elem -> String
+highlighElemMarkup [] e = addFocus (elemMarkup e)
+highlighElemMarkup _ (Single _) = error "cursor mismatch, indexing into Single"
+highlighElemMarkup (i:is) (Triplet _ es) =
     " \\tuplet 3/2 { "
     <>
-   elemSeqMarkup i es
+   elemSeqMarkup (Cursor (i:|is)) es
     <>
     " } "
 
@@ -56,7 +56,7 @@ elemMarkup (Single n) = noteMarkup n
 elemMarkup  (Triplet _ es) =
     " \\tuplet 3/2 { "
     <>
-    elemSeqMarkup (Cursor (-1) Nothing) es -- uh
+    elemSeqMarkup [-1] es -- uh
     <>
     " } "
 

@@ -63,7 +63,7 @@ hprop_moveCursorRight = withTests 1 . property $
          moveCursorRight [0,2] [trip [note, note, note]] === Nothing
 
          -- In and out of trips
-         moveCursorRight [0] [note, trip [note], note] === Just [1,0]
+         moveCursorRight [0] [note, trip [note], note] === Just [1] -- we don't go down a level automatically
          moveCursorRight [1,0] [note, trip [note], note] === Just [2]
          moveCursorRight [2] [note, trip [note], note] === Nothing
 
@@ -80,6 +80,6 @@ hprop_moveCursorLeft = withTests 1 . property $
          moveCursorLeft [0,0] [trip [note, note, note]] === Nothing
 
          -- In and out of trips
-         moveCursorLeft [2] [note, trip [note], note] === Just [1,0]
+         moveCursorLeft [2] [note, trip [note], note] === Just [1] -- We don't go down a level automatically
          moveCursorLeft [1,0] [note, trip [note], note] === Just [0]
          moveCursorLeft [0] [note, trip [note], note] === Nothing

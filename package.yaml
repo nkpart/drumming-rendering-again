@@ -1,3 +1,5 @@
+name: drumming-rendering-again
+
 dependencies:
   - base == 4.*
   - mtl
@@ -9,6 +11,9 @@ dependencies:
   - haskell-gi-base
   - gi-gtk
   - gi-gdk
+  - diagrams
+  - diagrams-lib
+  - diagrams-cairo
 
 executables:
   score:

@@ -25,6 +25,7 @@ import RIO
 import RIO.Seq
 import GHC.Exts (IsList (Item, toList, fromList))
 import qualified RIO.Seq as Seq
+import qualified RIO.NonEmpty
 
 data Elem =
     Single Note
@@ -41,15 +42,15 @@ newtype ElemSeq = ElemSeq (Seq Elem)
 instance Show ElemSeq where
   show (ElemSeq e) = show (RIO.toList e)
 
-data Cursor = Cursor Int (Maybe Cursor)
+newtype Cursor = Cursor { unCursor :: NonEmpty Int }
   deriving (Eq, Show)
 
 instance IsList Cursor where
   type instance Item Cursor = Int
   fromList [] = error "Cursor.fromList - Need at least one cursor level."
-  fromList [x] = Cursor x Nothing
-  fromList (x:xs) = Cursor x (Just $ GHC.Exts.fromList xs)
-  toList (Cursor i js) = i : maybe [] GHC.Exts.toList js
+  fromList [x] = Cursor (x:| [])
+  fromList (x:xs) = Cursor (x:| xs)
+  toList (Cursor (i :| js)) = i : js
 
 makeWrapped ''ElemSeq
 makeLenses ''Elem
@@ -60,29 +61,29 @@ type instance IxValue ElemSeq = Elem
 type instance Index ElemSeq = Cursor
 
 instance Ixed ElemSeq where
-  ix (Cursor i Nothing) =
+  ix (Cursor (i :| [])) =
     _Wrapped . ix i
-  ix (Cursor i (Just n)) =
-    _Wrapped . ix i . _Triplet . _2 . ix n
+  ix (Cursor (i :| (x:xs))) =
+    _Wrapped . ix i . _Triplet . _2 . ix (Cursor $ x :| xs)
 
 focus :: Int -> Cursor
-focus i = Cursor i Nothing
+focus i = Cursor (i :| [])
 
 intermediate :: Int -> Cursor -> Cursor
-intermediate i = Cursor i . Just
+intermediate i = Cursor . (i :|) . GHC.Exts.toList
 
 -- insertElem :: Cursor -> ElemSeq -> _ -> ElemSeq
 modifying :: (Int -> Seq Elem -> Seq Elem) -> Cursor -> ElemSeq -> ElemSeq
-modifying f (Cursor i nextI) (ElemSeq notes) = ElemSeq $
+modifying f (Cursor (i :| nextI)) (ElemSeq notes) = ElemSeq $
   case nextI of
-    Nothing -> f i notes
-    Just trips -> notes & ix i . _Triplet . _2 RIO.%~ modifying f trips
+    [] -> f i notes
+    (x:xs) -> notes & ix i . _Triplet . _2 RIO.%~ modifying f (Cursor (x:|xs))
 
 withNeighbours :: (Int -> Seq Elem -> a) -> Cursor -> ElemSeq -> Maybe a
-withNeighbours f (Cursor i nextI) (ElemSeq notes) =
+withNeighbours f (Cursor (i :| nextI)) (ElemSeq notes) =
   case nextI of
-    Nothing -> Just $ f i notes
-    Just trips -> notes ^? ix i . _Triplet . _2 >>= withNeighbours f trips
+    [] -> Just $ f i notes
+    (x:xs) -> notes ^? ix i . _Triplet . _2 >>= withNeighbours f (Cursor (x:|xs))
 
 insertElem :: Elem -> Cursor -> ElemSeq -> ElemSeq
 insertElem n =
@@ -103,28 +104,27 @@ takeAtLevel n =
   withNeighbours (\i-> Seq.take n . Seq.drop i)
 
 moveCursorRight :: Cursor -> ElemSeq -> Maybe Cursor
-moveCursorRight (Cursor i Nothing) (ElemSeq notes) = do
+moveCursorRight (Cursor (i :| [])) (ElemSeq notes) = do
   focus (i+1) <$ guard (i+1 < Seq.length notes)
-moveCursorRight (Cursor i (Just iNext)) (ElemSeq notes) = do
+moveCursorRight (Cursor (i :| (x:xs))) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
-  (intermediate i <$> moveCursorRight iNext ns)
+  (intermediate i <$> moveCursorRight (Cursor $ x:|xs) ns)
     <|> moveCursorRight (focus i) (ElemSeq notes)
 
 moveCursorLeft :: Cursor -> ElemSeq -> Maybe Cursor
-moveCursorLeft (Cursor i Nothing) (ElemSeq notes) =
-  focus (i-1) <$ guard (i-1 < Seq.length notes)
-moveCursorLeft (Cursor i (Just iNext)) (ElemSeq notes) = do
+moveCursorLeft (Cursor (i :| [])) (ElemSeq notes) =
+  focus (i-1) <$ guard (i-1 < Seq.length notes && (i-1) >= 0)
+moveCursorLeft (Cursor (i :| (x:xs))) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
-  (intermediate i <$> moveCursorLeft iNext ns)
+  (intermediate i <$> moveCursorLeft (Cursor $ x:|xs) ns)
     <|> moveCursorLeft (focus i) (ElemSeq notes)
 
 moveCursorDown :: Cursor -> ElemSeq -> Maybe Cursor
-moveCursorDown (Cursor i nextI) (ElemSeq notes) = do
+moveCursorDown (Cursor (i :| nextI)) (ElemSeq notes) = do
   Triplet _ ns <- RIO.Seq.lookup i notes
   case nextI of
-    Nothing -> pure (intermediate i (focus 0))
-    Just v -> intermediate i <$> moveCursorDown v ns
+    [] -> pure (intermediate i (focus 0))
+    (x:xs) -> intermediate i <$> moveCursorDown (Cursor (x:|xs)) ns
 
 moveCursorUp :: Cursor -> Maybe Cursor
-moveCursorUp (Cursor _ Nothing) = Nothing
-moveCursorUp (Cursor i (Just v)) = Just (Cursor i (moveCursorUp v))
+moveCursorUp (Cursor xs) = Cursor <$> RIO.NonEmpty.nonEmpty (RIO.NonEmpty.init xs)

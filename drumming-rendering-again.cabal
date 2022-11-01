@@ -17,6 +17,7 @@ library
       Note
       Score
       Score.Render
+      Silly
   other-modules:
       Paths_drumming_rendering_again
   hs-source-dirs:
@@ -25,7 +26,9 @@ library
   build-depends:
       base ==4.*
     , blaze-markup
-    , diagrams-gi-gtk
+    , diagrams
+    , diagrams-cairo
+    , diagrams-lib
     , gi-gdk
     , gi-gtk
     , haskell-gi-base
@@ -44,7 +47,9 @@ executable score
   build-depends:
       base ==4.*
     , blaze-markup
-    , diagrams-gi-gtk
+    , diagrams
+    , diagrams-cairo
+    , diagrams-lib
     , drumming-rendering-again
     , gi-gdk
     , gi-gtk
@@ -72,7 +77,9 @@ test-suite spec
   build-depends:
       base ==4.*
     , blaze-markup
-    , diagrams-gi-gtk
+    , diagrams
+    , diagrams-cairo
+    , diagrams-lib
     , drumming-rendering-again
     , gi-gdk
     , gi-gtk

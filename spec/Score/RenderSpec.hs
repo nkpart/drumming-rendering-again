@@ -25,7 +25,7 @@ hprop_renderScore_with_notes = withTests 1 . property $
         left&_Single.duration.~d8, 
         right&_Single.duration.~d16]
       thisScore = 
-          Score initState (Cursor 2 Nothing) theNotes
+          Score initState [2] theNotes
       -- thisScore = Score initState Metadata (Just $ fromMaybe theNotes $ Just theNotes >>= Z.right >>= Z.right)
     in do
         v <- readGolden (show 'renderScore <> "-somewhat-complicated") 

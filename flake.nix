@@ -13,7 +13,7 @@
     in
     {
       overlay = (final: prev: {
-        haskell-hello = final.haskellPackages.callCabal2nix "haskell-hello" ./. {};
+        haskell-hello = final.haskellPackages.callCabal2nix "drumming-rendering-again" ./. {};
 
         haskellPackages = prev.haskellPackages.override (old: {
           overrides = final.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {

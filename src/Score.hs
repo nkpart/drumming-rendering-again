@@ -27,7 +27,7 @@ makeLenses ''Score
 
 score :: [Elem] -> Score
 -- TODO The cursor and the content doesn't line up :(
-score ns = Score initState (Cursor (-1) Nothing) (fromList ns)
+score ns = Score initState [-1] (fromList ns)
 
 execThis :: StateT s Maybe a -> s -> s
 execThis action s =
