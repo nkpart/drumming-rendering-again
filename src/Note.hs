@@ -6,7 +6,7 @@ module Note (
   Hand(..), swapHand,
   noteDotted, doubleDuration, halveDuration, toggleDotted,
   noteValue
- , addDurations, addNotes, note)
+ , note)
  where
 
 import Control.Lens.TH
@@ -16,7 +16,7 @@ import RIO.Set as S
 import Duration
     (Duration,
      duration,
-     durationValue,
+     durationDenom,
      halveDuration,
      doubleDuration,
      d1,
@@ -25,7 +25,7 @@ import Duration
      d8,
      d16,
      d32,
-     addDurations, HasDuration)
+     HasDuration)
 
 data Note =
     Note    { _hand :: Hand, _noteDuration :: Duration, _noteDotted :: Bool, _mods :: Set Mod }
@@ -51,11 +51,13 @@ data Hand =
     LeftHand
   | RightHand
   | Rest
+  | Space
    deriving (Eq, Enum, Bounded)
 
 instance Show Hand where
   show RightHand = "R"
   show LeftHand = "L"
+  show Space = "-"
   show Rest = "_"
 
 makeLenses ''Note
@@ -64,23 +66,13 @@ instance HasDuration Note where
   duration = noteDuration
 
 noteValue :: Note -> Int
-noteValue = durationValue . view duration
-
-addNotes :: Note -> Note -> Maybe Note
-addNotes (Note hand1 duration1 dd1 mods1) (Note _ duration2 dd2 mods2) = do
-  -- todo, can combine certain combinations of dots and durations 
-  guard $ dd1 == dd2
-  newD <- addDurations duration1 duration2
-  newM <- addMods mods1 mods2
-  pure $ Note hand1 newD dd1 newM
-
-addMods :: Set Mod -> Set Mod -> Maybe (Set Mod)
-addMods a b = Just (mappend a b)
+noteValue = durationDenom . view duration
 
 swapHand :: Hand -> Hand
 swapHand LeftHand = RightHand
 swapHand RightHand = LeftHand
-swapHand Rest = RightHand
+swapHand Rest = Rest
+swapHand Space = Space
 
 toggleMod :: Mod -> Set Mod -> Set Mod
 toggleMod m s =

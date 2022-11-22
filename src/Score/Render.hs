@@ -5,7 +5,7 @@ import Score
 import Elem
 import Note
 import RIO hiding (rights, lefts)
-import RIO.Seq (intersperse)
+import RIO.List (intersperse)
 
 renderScore :: Score -> String
 renderScore (Score ms) = unlines [
@@ -28,16 +28,20 @@ renderScore (Score ms) = unlines [
 
 -- TODO: line breaks after measures?
 
-elemSeqMarkup :: [Elem] -> String
-elemSeqMarkup (ElemSeq es) =
-      fold . intersperse " " . fmap elemMarkup $ es
+elemSeqMarkup :: [Token] -> String
+elemSeqMarkup =
+      fold . intersperse " " . fmap f
+      where f (Elem_ e) = elemMarkup e
+            f BarLine = " | "
+            f NewLine = " \\break \n"
 
 elemMarkup :: Elem -> String
+elemMarkup (Content n) = n
 elemMarkup (Single n) = noteMarkup n
 elemMarkup  (Triplet _ es) =
     " \\tuplet 3/2 { "
     <>
-    elemSeqMarkup es -- uh
+    elemSeqMarkup (fmap Elem_ es) -- uh
     <>
     " } "
 
@@ -48,6 +52,7 @@ noteMarkup n@(Note h _ dt m) =
     RightHand -> "P"
     LeftHand -> "p"
     Rest -> "r"
+    Space -> "s"
   <>
   durationMarkup n
   <>

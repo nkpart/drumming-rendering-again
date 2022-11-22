@@ -20,11 +20,13 @@
   \layout {
     % No indent on the first line
     indent = #0
+    ragged-last = ##t
+    ragged-right = ##t
     \context {
       \Score
-      
-          $(add-grace-property 'Voice 'Stem 'font-size -4) 
-    $(add-grace-property 'Voice 'NoteHead 'font-size -4) 
+      forbidBreakBetweenBarLines = ##f
+      $(add-grace-property 'Voice 'Stem 'font-size -4) 
+      $(add-grace-property 'Voice 'NoteHead 'font-size -4) 
 
       % Fixes grace note spacing in drags and roughs
       \consists "Grace_spacing_engraver"
@@ -46,6 +48,7 @@
       
   
       \dynamicUp    
+
     }
   }
   

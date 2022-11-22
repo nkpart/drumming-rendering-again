@@ -6,3 +6,6 @@
 2022-10-18 19:46:45.615081000000 [76492(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)
 2022-10-19 22:11:12.082170000000 [57179(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)
 2022-10-19 22:17:52.156010000000 [58353(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)
+2022-11-21 20:08:57.121339000000 [80120(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)
+2022-11-21 20:09:38.514318000000 [80276(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)
+2022-11-21 20:51:36.787633000000 [85496(ThreadId 21)] ERROR APP - stack: runProcess: exec: does not exist (No such file or directory)

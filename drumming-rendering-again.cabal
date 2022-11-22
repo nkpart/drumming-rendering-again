@@ -11,13 +11,11 @@ build-type:     Simple
 library
   exposed-modules:
       Duration
-      EditState
       Elem
-      Gui
       Note
+      Phrase
       Score
       Score.Render
-      Silly
   other-modules:
       Paths_drumming_rendering_again
   hs-source-dirs:

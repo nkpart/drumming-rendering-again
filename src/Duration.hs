@@ -4,14 +4,15 @@ module Duration (
   d1,d2,d4,d8,d16,d32,
   HasDuration,
   duration,
-  durationValue,
-  addDurations,
+  durationDenom,
+  durationRational,
   doubleDuration,
   halveDuration
   ) where
 
 import Control.Lens.TH
 import Control.Lens ()
+import Data.Ratio
 
 newtype Duration = Duration { 
    dval :: Int
@@ -22,8 +23,11 @@ makeClassy ''Duration
 instance Show Duration where
   show (Duration d) = show d
 
-durationValue :: Duration -> Int
-durationValue = dval
+durationDenom :: Duration -> Int
+durationDenom = dval
+
+durationRational :: Duration -> Ratio Int
+durationRational = (1 %) . dval
 
 halveDuration :: Duration -> Duration
 halveDuration (Duration n)
@@ -42,11 +46,3 @@ d4 = Duration 4
 d8 = Duration 8 
 d16 = Duration 16
 d32 = Duration 32 
-
-addDurations :: Duration -> Duration -> Maybe Duration
-addDurations p q 
- -- TODO we can combine a p with decreasedval p into a dotted p
- | p == q 
-   = Just (doubleDuration p)
- | otherwise
-   = Nothing
